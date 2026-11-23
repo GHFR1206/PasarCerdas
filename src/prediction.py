@@ -62,17 +62,23 @@ def _predict_from(bundle: dict, sub: pd.DataFrame, geo_id: str, commodity: str) 
         raise InsufficientHistory(
             f"Riwayat tidak cukup: hanya {int(row['n_obs_last6'].iloc[0])} bulan observasi dari 6 bulan terakhir "
             f"(minimal {MIN_OBS_LAST6}).")
-    models = bundle["models"]
-    key = "global" if bundle["strategy"] == "global" else commodity
-    if key not in models:
-        raise InsufficientHistory("Model untuk komoditas ini tidak tersedia.")
-    yhat = models[key].predict(row[bundle["features"]])
-    pred = float(T.to_price(row, yhat, bundle["target_mode"])[0])
+    last_price = float(row["price_lag_1"].iloc[0])
+    method = bundle.get("commodity_method", {}).get(commodity, "model")
+    if method == "naive":
+        # Untuk komoditas ini model tidak terbukti lebih akurat dari naive pada validasi: pakai harga terakhir.
+        pred = last_price
+    else:
+        models = bundle["models"]
+        key = "global" if bundle["strategy"] == "global" else commodity
+        if key not in models:
+            raise InsufficientHistory("Model untuk komoditas ini tidak tersedia.")
+        yhat = models[key].predict(row[bundle["features"]])
+        pred = float(T.to_price(row, yhat, bundle["target_mode"])[0])
     if not np.isfinite(pred) or pred <= 0:
         raise InsufficientHistory("Model menghasilkan nilai tidak valid; prediksi tidak ditampilkan.")
-    last_price = float(row["price_lag_1"].iloc[0])
     return {"target_date": target_date, "last_date": last_obs, "last_price": last_price,
             "prediction": pred, "change": pred - last_price, "change_pct": (pred / last_price - 1) * 100,
+            "method": method,
             "history": hist.dropna(), "features": row[bundle["features"]].iloc[0].to_dict(),
             "n_observed": n_obs}
 

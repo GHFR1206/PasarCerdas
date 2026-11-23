@@ -8,7 +8,8 @@ import numpy as np
 import pandas as pd
 from .config import MIN_OBS_LAST6
 
-CATEGORICAL = ["commodity", "geo_id", "adm1_name"]
+# geo_id dibuang: urutan angkanya tidak bermakna. Provinsi (adm1_name) di-one-hot.
+CATEGORICAL = ["commodity", "adm1_name"]
 NUMERIC = ["year", "month", "price_lag_1", "price_lag_2", "price_lag_3", "price_lag_12",
            "rolling_mean_3", "rolling_mean_6", "n_obs_last6", "mom_1", "dev_roll3", "dev_roll6"]
 FEATURES = CATEGORICAL + NUMERIC

@@ -59,20 +59,32 @@ def render():
     except InsufficientHistory as e:
         st.markdown(f"<div class='pc-warn'>{e}</div>", unsafe_allow_html=True); return
     r, fin = path[0], path[-1]
+    naive = fin["method"] == "naive"
     up = fin["change_vs_observed"] >= 0
-    arrow_word = "naik" if up else "turun"
-    em = read_csv_result("evaluation_by_commodity.csv")
-    row = em[(em.commodity == code) & (em.model == bundle["name"])]
+    cm = read_csv_result("commodity_method.csv")
+    crow = cm[cm["commodity"] == code].iloc[0]
+    mape_t = float(crow["mape_test_terpilih"])
+
+    if naive:
+        sm_text = "Sama dengan harga terakhir: untuk bahan ini model belum lebih akurat dari tebakan harga bulan lalu."
+        chg_text = "tetap"
+    else:
+        chg_text = ("naik" if up else "turun")
+        sm_text = (f"{arrow_icon(up)} {chg_text} {idr(abs(fin['change_vs_observed']))} "
+                   f"({fmt_pct(abs(fin['change_vs_observed_pct']))}) dibanding harga terakhir "
+                   f"{idr(r['last_price'])} ({fmt_month(r['last_date'])})")
 
     st.markdown(f"<div class='pc-result'><div class='sm'>Perkiraan harga {com_name} di {pas} pada {fmt_month(fin['target_date'])}</div>"
                 f"<div class='big'>{idr(fin['prediction'])} <span style='font-size:1rem;font-weight:700;color:#E4F7D0'>/kg</span></div>"
-                f"<div class='sm'>{arrow_icon(up)} {arrow_word} {idr(abs(fin['change_vs_observed']))} "
-                f"({fmt_pct(abs(fin['change_vs_observed_pct']))}) dibanding harga terakhir {idr(r['last_price'])} ({fmt_month(r['last_date'])})</div></div>",
-                unsafe_allow_html=True)
-    msg = (f"Harga {com_name} di {pas}, {kab.title()} diperkirakan <b>{arrow_word}</b> sekitar <b>{idr(abs(fin['change_vs_observed']))}</b> per kg. ")
-    if not row.empty:
-        msg += (f"Pada pengujian, tebakan model ini rata-rata meleset sekitar <b>{idr(row.MAE.iloc[0])}</b> per kg untuk {com_name}, "
-                "jadi anggap hasilnya sebagai <b>perkiraan</b>, bukan angka pasti.")
+                f"<div class='sm'>{sm_text}</div></div>", unsafe_allow_html=True)
+    if naive:
+        msg = (f"Untuk <b>{com_name}</b>, model belum terbukti lebih akurat dibanding tebakan harga bulan lalu "
+               "pada data validasi, sehingga yang ditampilkan adalah harga terakhir sebagai perkiraan dasar.")
+    else:
+        msg = (f"Harga <b>{com_name}</b> di {pas}, {kab.title()} diperkirakan <b>{chg_text}</b> sekitar "
+               f"<b>{idr(abs(fin['change_vs_observed']))}</b> per kg.")
+    msg += (f" Pada data uji 2025–2026, perkiraan untuk bahan ini rata-rata meleset sekitar "
+            f"<b>{mape_t:.1f}%</b> dari harga sebenarnya.")
     insight(msg)
     if horizon > 1:
         st.markdown("<div class='pc-warn'>Perkiraan lebih dari 1 bulan dihitung bertahap (hasil bulan sebelumnya dipakai untuk bulan berikutnya). "
@@ -83,8 +95,8 @@ def render():
                      hide_index=True, width="stretch")
     k = st.columns(3)
     with k[0]: stat_card("Harga terakhir tercatat", idr(r["last_price"]), fmt_month(r["last_date"]), "navy")
-    with k[1]: stat_card("Perubahan", f"{fin['change_vs_observed']:+,.0f}".replace(",", "."), fmt_pct(fin['change_vs_observed_pct'], True, 2), "up" if up else "down")
-    with k[2]: stat_card("Kecenderungan", "Naik" if up else "Turun", "indikatif, bukan jaminan", "up" if up else "down")
+    with k[1]: stat_card("Perubahan", f"{fin['change_vs_observed']:+,.0f}".replace(",", "."), fmt_pct(fin['change_vs_observed_pct'], True, 2), "navy" if naive else ("up" if up else "down"))
+    with k[2]: stat_card("Kecenderungan", "Tetap" if naive else ("Naik" if up else "Turun"), "indikatif, bukan jaminan", "navy" if naive else ("up" if up else "down"))
 
     h = r["history"].tail(24)
     fig = go.Figure()

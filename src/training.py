@@ -63,11 +63,9 @@ def make_pipeline(algo: str, params: dict | None = None) -> Pipeline:
         ])
         model = LinearRegression()
     else:
-        ord_enc = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
         num = (Pipeline([("imp", SimpleImputer(strategy="median"))]) if algo == "rf" else "passthrough")
         pre = ColumnTransformer([
-            ("com", OneHotEncoder(handle_unknown="ignore", sparse_output=False), ["commodity"]),
-            ("ord", ord_enc, ["geo_id", "adm1_name"]),
+            ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), CATEGORICAL),
             ("num", num, NUMERIC),
         ])
         if algo == "rf":
@@ -121,11 +119,11 @@ def run_experiments(feat: pd.DataFrame, log=print, quick: bool = False):
                 t0 = time.time()
                 models = fit_strategy(train, algo, params, strategy, mode)
                 pv = predict_strategy(models, val, strategy, mode)
-                mae_v = float(np.mean(np.abs(val["target"].values - pv)))
-                log(f"  [{mode:5s}|{strategy:8s}|{algo:6s}] {params} val MAE={mae_v:,.1f} ({time.time()-t0:.0f}s)")
-                if best is None or mae_v < best[0]:
-                    best = (mae_v, params, models, pv)
-            mae_v, params, models, pv = best
+                mape_v = regression_metrics(val["target"], pv)["MAPE_%"]
+                log(f"  [{mode:5s}|{strategy:8s}|{algo:6s}] {params} val MAPE={mape_v:.2f}% ({time.time()-t0:.0f}s)")
+                if best is None or mape_v < best[0]:
+                    best = (mape_v, params, models, pv)
+            mape_v, params, models, pv = best
             if strategy == "global": best_params[(mode, algo)] = params
             name = f"{ALGO_NAMES[algo]} | {strategy} | {mode}"
             pt = predict_strategy(models, test, strategy, mode)
@@ -146,9 +144,9 @@ def run_experiments(feat: pd.DataFrame, log=print, quick: bool = False):
 
 
 def select_best(res: pd.DataFrame) -> str:
-    """Model terbaik = MAE validasi terendah (test tidak dipakai untuk seleksi)."""
+    """Model terbaik = MAPE validasi terendah (test tidak dipakai untuk seleksi)."""
     v = res[(res.split == "validation") & (res.model != "Naive Forecast")]
-    return v.sort_values("MAE").iloc[0]["model"]
+    return v.sort_values("MAPE_%").iloc[0]["model"]
 
 
 # ----------------------------------------------------------------------------- saving

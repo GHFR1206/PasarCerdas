@@ -70,6 +70,28 @@ def eval_figures(res, test, preds_test, best_name):
     fig.tight_layout(); fig.savefig(FIG_DIR / "eval_06_global_vs_separate.png", dpi=130); plt.close(fig)
 
 
+def mape(y, p) -> float:
+    y = np.asarray(y, dtype=float); p = np.asarray(p, dtype=float)
+    return float(np.mean(np.abs(y - p) / y) * 100)
+
+
+def commodity_choice(val, test, pv_model, pt_model) -> pd.DataFrame:
+    """Per komoditas: pilih 'model' atau 'naive' berdasarkan MAPE VALIDASI (2024).
+    Data test hanya dilaporkan, tidak dipakai untuk memilih."""
+    rows = []
+    for c, nama in COMMODITIES.items():
+        mv = (val["commodity"] == c).values; mt = (test["commodity"] == c).values
+        yv = val["target"].values[mv]; yt = test["target"].values[mt]
+        m_val_model = mape(yv, pv_model[mv]); m_val_naive = mape(yv, val["price_lag_1"].values[mv])
+        m_test_model = mape(yt, pt_model[mt]); m_test_naive = mape(yt, test["price_lag_1"].values[mt])
+        method = "naive" if m_val_naive <= m_val_model else "model"
+        rows.append(dict(commodity=c, nama=nama, metode=method,
+                         mape_val_model=round(m_val_model, 3), mape_val_naive=round(m_val_naive, 3),
+                         mape_test_model=round(m_test_model, 3), mape_test_naive=round(m_test_naive, 3),
+                         mape_test_terpilih=round(m_test_naive if method == "naive" else m_test_model, 3)))
+    return pd.DataFrame(rows)
+
+
 def run_all(log=print, quick=False):
     for d in (MODELS_DIR, RESULTS_DIR, FIG_DIR, MODELS_DIR / "alternatif"):
         d.mkdir(parents=True, exist_ok=True)
@@ -91,7 +113,14 @@ def run_all(log=print, quick=False):
     log("== 4. Training & tuning ==")
     train, val, test, res, pv, pt, store = T.run_experiments(feat, log=log, quick=quick)
     best_name = T.select_best(res)
-    log(f"Model terpilih (MAE validasi terendah): {best_name}")
+    log(f"Model terpilih (MAPE validasi terendah): {best_name}")
+    log("== 4b. Pilih metode per komoditas (model vs naive, MAPE validasi) ==")
+    choice = commodity_choice(val, test, pv[best_name], pt[best_name])
+    choice.to_csv(RESULTS_DIR / "commodity_method.csv", index=False)
+    commodity_method = dict(zip(choice["commodity"], choice["metode"]))
+    for _, r in choice.iterrows():
+        log(f"  {r['nama']:<14} metode={r['metode']:<5} MAPE val model={r['mape_val_model']:.2f}% "
+            f"naive={r['mape_val_naive']:.2f}% | test terpilih={r['mape_test_terpilih']:.2f}%")
 
     log("== 5. Evaluasi ==")
     res.to_csv(RESULTS_DIR / "evaluation_metrics.csv", index=False)
@@ -114,13 +143,23 @@ def run_all(log=print, quick=False):
     # model terbaik per algoritma (berdasarkan MAE validasi) -> alternatif untuk website
     v = res[(res.split == "validation") & (res.model != "Naive Forecast")]
     alt = {}
-    for algo, g in v.groupby("algo"):
-        nm = g.sort_values("MAE").iloc[0]["model"]
+    alt_names = {algo: g.sort_values("MAPE_%").iloc[0]["model"] for algo, g in v.groupby("algo")}
+    # Latih ulang model yang dipakai dengan data train + validasi (sampai Desember 2024).
+    # Test tetap tidak pernah dipakai untuk melatih; metrik test di metadata berasal dari model train-only.
+    log("== 6a. Latih ulang model final dengan data train + validasi (2016-10 s.d. 2024-12) ==")
+    full = pd.concat([train, val], ignore_index=True)
+    for nm in {best_name, *alt_names.values()}:
+        e = store[nm]
+        e["models"] = T.fit_strategy(full, e["algo"], e["params"], e["strategy"], e["mode"])
+        log(f"  refit: {nm}")
+    for algo, nm in alt_names.items():
         bundle = T.make_bundle(store[nm], nm)
+        bundle["commodity_method"] = commodity_method
         fn = MODELS_DIR / "alternatif" / f"{slug(nm)}.pkl"
         joblib.dump(bundle, fn, compress=3)
         alt[T.ALGO_NAMES[store[nm]['algo']] if False else algo] = nm
     best_bundle = T.make_bundle(store[best_name], best_name)
+    best_bundle["commodity_method"] = commodity_method
     joblib.dump(best_bundle, MODELS_DIR / "best_model.pkl", compress=3)
     first = next(iter(best_bundle["models"].values()))
     joblib.dump({k: m.named_steps["prep"] for k, m in best_bundle["models"].items()},
@@ -138,7 +177,12 @@ def run_all(log=print, quick=False):
         "rows": {"train": int(len(train)), "validation": int(len(val)), "test": int(len(test))},
         "last_observed_month": str(last_obs.date()),
         "supported_commodities": COMMODITIES, "features": FEATURES,
-        "selection_rule": "MAE validasi (2024) terendah di antara seluruh kombinasi model; data test tidak dipakai memilih.",
+        "refit_period": ["2016-10-01", str(val.date.max().date())],
+        "metrics_test_note": "Metrik test dihitung dari model yang dilatih sampai Desember 2023 (sebelum refit); test tidak dipakai untuk melatih.",
+        "selection_rule": ("Model: MAPE validasi (2024) terendah di antara seluruh kombinasi model. "
+                           "Per komoditas: model atau naive dipilih berdasarkan MAPE validasi (2024). "
+                           "Data test tidak dipakai untuk memilih."),
+        "commodity_method": commodity_method,
         "metrics_validation": {k: best_rows.loc["validation", k] for k in ["MAE", "RMSE", "R2", "MAPE_%"]},
         "metrics_test": {k: best_rows.loc["test", k] for k in ["MAE", "RMSE", "R2", "MAPE_%"]},
         "naive_baseline_test": {k: naive_rows.loc["test", k] for k in ["MAE", "RMSE", "R2", "MAPE_%"]},
@@ -149,6 +193,7 @@ def run_all(log=print, quick=False):
     # verifikasi: model yang dimuat ulang menghasilkan prediksi identik
     re_b = joblib.load(MODELS_DIR / "best_model.pkl")
     p2 = T.predict_strategy(re_b["models"], test, re_b["strategy"], re_b["target_mode"])
-    assert np.allclose(p2, pt[best_name]), "Prediksi model hasil load tidak konsisten!"
+    p_mem = T.predict_strategy(store[best_name]["models"], test, store[best_name]["strategy"], store[best_name]["mode"])
+    assert np.allclose(p2, p_mem), "Prediksi model hasil load tidak konsisten!"
     log("Verifikasi load model: prediksi konsisten (OK)")
     return meta, res

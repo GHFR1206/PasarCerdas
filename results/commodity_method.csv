@@ -1,0 +1,8 @@
+commodity,nama,metode,mape_val_model,mape_val_naive,mape_test_model,mape_test_naive,mape_test_terpilih
+eggs,Telur,naive,3.478,2.901,4.824,4.47,4.47
+garlic,Bawang Putih,naive,3.697,3.627,6.166,5.336,5.336
+meat_chicken,Daging Ayam,naive,5.748,5.661,7.318,7.02,7.02
+oil,Minyak Nabati,naive,1.921,1.44,1.764,1.148,1.148
+onions,Bawang Merah,model,12.904,15.933,12.917,14.313,12.917
+rice,Beras,naive,1.782,1.22,1.359,0.834,0.834
+sugar,Gula,naive,1.862,1.129,1.755,1.2,1.2

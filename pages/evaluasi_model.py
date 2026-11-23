@@ -5,11 +5,27 @@ import plotly.express as px
 import streamlit as st
 from src.config import FIG_DIR, COMMODITIES
 from src.prediction import load_metadata
-from src.ui import page_header, insight, help_box, read_csv_result, style_fig, show, stat_card, idr, GREEN, NAVY
+from src.ui import page_header, insight, help_box, read_csv_result, style_fig, show, stat_card, idr, section_title, GREEN, NAVY
 
 
 def render():
     page_header("Seberapa Akurat Prediksinya?", "Hasil uji model pada data yang belum pernah dilihatnya (Januari 2025 – September 2026).")
+    cm = read_csv_result("commodity_method.csv")
+    section_title("Metode per komoditas",
+                  "Model dibandingkan dengan tebakan harga bulan lalu (naif) pada data validasi 2024. "
+                  "Yang dipakai adalah yang lebih akurat untuk tiap bahan. Angka di bawah dihitung pada data uji 2025–2026.")
+    tbl = pd.DataFrame({
+        "Bahan pokok": cm["nama"],
+        "Metode dipakai": cm["metode"].map({"model": "Model", "naive": "Harga bulan lalu"}),
+        "MAPE model (%)": cm["mape_test_model"].round(2),
+        "MAPE harga bulan lalu (%)": cm["mape_test_naive"].round(2),
+        "MAPE yang dipakai (%)": cm["mape_test_terpilih"].round(2),
+    })
+    st.dataframe(tbl, hide_index=True, width="stretch")
+    n_naive = int((cm["metode"] == "naive").sum())
+    insight(f"Untuk <b>{n_naive} dari {len(cm)} bahan pokok</b>, model belum mengalahkan tebakan harga bulan lalu, "
+            "sehingga untuk bahan tersebut app menampilkan harga terakhir sebagai perkiraan dasar. "
+            "Itu disengaja supaya tidak menampilkan angka yang lebih buruk daripada tebakan sederhana.")
     meta = load_metadata()
     res = read_csv_result("evaluation_metrics.csv")
     test = res[res.split == "test"].copy(); val = res[res.split == "validation"]

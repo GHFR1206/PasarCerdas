@@ -5,12 +5,12 @@
   "target_mode": "ratio",
   "hyperparameters": {
     "n_estimators": 100,
-    "max_depth": 18,
-    "min_samples_leaf": 5,
+    "max_depth": 12,
+    "min_samples_leaf": 10,
     "max_features": 0.6
   },
   "seed": 42,
-  "trained_at": "2026-11-11T10:01:12",
+  "trained_at": "2026-11-23T12:27:01",
   "train_period": [
     "2016-10-01",
     "2023-12-01"
@@ -40,7 +40,6 @@
   },
   "features": [
     "commodity",
-    "geo_id",
     "adm1_name",
     "year",
     "month",
@@ -55,18 +54,32 @@
     "dev_roll3",
     "dev_roll6"
   ],
-  "selection_rule": "MAE validasi (2024) terendah di antara seluruh kombinasi model; data test tidak dipakai memilih.",
+  "refit_period": [
+    "2016-10-01",
+    "2024-12-01"
+  ],
+  "metrics_test_note": "Metrik test dihitung dari model yang dilatih sampai Desember 2023 (sebelum refit); test tidak dipakai untuk melatih.",
+  "selection_rule": "Model: MAPE validasi (2024) terendah di antara seluruh kombinasi model. Per komoditas: model atau naive dipilih berdasarkan MAPE validasi (2024). Data test tidak dipakai untuk memilih.",
+  "commodity_method": {
+    "eggs": "naive",
+    "garlic": "naive",
+    "meat_chicken": "naive",
+    "oil": "naive",
+    "onions": "model",
+    "rice": "naive",
+    "sugar": "naive"
+  },
   "metrics_validation": {
-    "MAE": 1453.2478381929247,
-    "RMSE": 2639.841535011699,
-    "R2": 0.939866867678164,
-    "MAPE_%": 4.550388944780208
+    "MAE": 1446.6067925453738,
+    "RMSE": 2651.048411865018,
+    "R2": 0.9393552194917238,
+    "MAPE_%": 4.511354752119787
   },
   "metrics_test": {
-    "MAE": 1904.1344381092122,
-    "RMSE": 3599.6700329184096,
-    "R2": 0.9093288981931898,
-    "MAPE_%": 5.15575485048171
+    "MAE": 1907.6232470853438,
+    "RMSE": 3621.546482561014,
+    "R2": 0.9082234695440271,
+    "MAPE_%": 5.1652186075765885
   },
   "naive_baseline_test": {
     "MAE": 1838.0512986545796,
