@@ -20,6 +20,8 @@ def render():
         "MAPE model (%)": cm["mape_test_model"].round(2),
         "MAPE harga bulan lalu (%)": cm["mape_test_naive"].round(2),
         "MAPE yang dipakai (%)": cm["mape_test_terpilih"].round(2),
+        "Rentang 80% (% dari perkiraan)": [f"{lo:+.1f} s.d. {hi:+.1f}" for lo, hi in zip(cm["band_low_pct"], cm["band_high_pct"])],
+        "Cakupan rentang di data uji (%)": cm["cakupan_uji_pct"].round(1),
     })
     st.dataframe(tbl, hide_index=True, width="stretch")
     n_naive = int((cm["metode"] == "naive").sum())
@@ -31,7 +33,7 @@ def render():
     test = res[res.split == "test"].copy(); val = res[res.split == "validation"]
     best = meta["model_name"]; mt, nv = meta["metrics_test"], meta["naive_baseline_test"]
 
-    st.markdown(f"<div class='pc-note'><b>Model terpilih:</b> {best} (MAE validasi terendah). "
+    st.markdown(f"<div class='pc-note'><b>Model terpilih:</b> {best} (MAPE validasi terendah). "
                 f"Latih: {meta['train_period'][0][:7]}–{meta['train_period'][1][:7]} · Validasi: 2024 · "
                 f"Uji: {meta['test_period'][0][:7]}–{meta['test_period'][1][:7]} · "
                 f"{meta['rows']['train']:,}/{meta['rows']['validation']:,}/{meta['rows']['test']:,} baris.</div>".replace(",", "."),

@@ -43,8 +43,17 @@ Beberapa keputusan penting dalam pengolahan dataset:
 | Training | Hingga Desember 2023 |
 | Validation | Januari–Desember 2024 |
 | Testing | Januari 2025–September 2026 |
+| Latih ulang model final | Hingga Desember 2024 (train + validation) |
 
-Seleksi model dan hyperparameter hanya menggunakan data validasi untuk menghindari penggunaan data testing dalam proses pemilihan model.
+Seleksi model dan hyperparameter hanya menggunakan data validasi (metrik MAPE) untuk menghindari penggunaan data testing dalam proses pemilihan model.
+
+**Pilihan per komoditas.** Untuk setiap bahan, model terpilih dibandingkan dengan tebakan naif (harga bulan lalu) pada data validasi. Yang memiliki MAPE lebih kecil yang dipakai. Pada versi ini, 6 dari 7 bahan memakai harga bulan lalu, dan hanya bawang merah yang memakai model. Pilihan ini tidak memakai data test.
+
+**Model final dilatih ulang** dengan data train + validation (sampai Desember 2024). Metrik test di metadata tetap berasal dari model yang hanya dilatih sampai Desember 2023, sehingga tetap out-of-sample.
+
+**Fitur musiman:** penanda Ramadan (proporsi hari puasa dalam bulan), bulan Idul Fitri, dan bulan sebelum Idul Fitri, serta posisi bulan dalam setahun (sin/cos). Fitur ini hanya berisi informasi kalender. Tanggal Ramadan dan Idul Fitri per tahun ada di `src/feature_engineering.py`. Tanggal 2023–2026 sudah dicocokkan dengan penetapan pemerintah (Kemenag) lewat pemberitaan. Tanggal 2016–2022 belum diverifikasi.
+
+**Fitur `geo_id` dibuang**, karena urutan angkanya tidak bermakna. Provinsi (`adm1_name`) di-one-hot.
 
 *Catatan: Interpretasi kolom diverifikasi melalui katalog data World Bank dan pemeriksaan empiris.*
 
@@ -84,7 +93,7 @@ PasarCerdas/
 │   ├── raw/
 │   └── processed/
 │       ├── prices_long.csv
-│       └── features_model.csv
+│       └── features_model.csv        (turunan; dibuat ulang oleh retrain.py, tidak di-commit)
 │
 ├── notebooks/
 │   ├── 01_dataset_audit_eda.ipynb
@@ -227,8 +236,10 @@ Pipeline mencakup:
 2. Exploratory Data Analysis (EDA).
 3. Feature Engineering.
 4. Pelatihan 12 eksperimen model beserta tuning hyperparameter.
-5. Evaluasi model.
-6. Penyimpanan model dan metadata.
+5. Evaluasi model (MAPE, MAE, RMSE, R²) dan pemilihan metode per komoditas.
+6. Perhitungan rentang ketidakpastian 80% per komoditas dan cek cakupannya pada data test.
+7. Latih ulang model final dengan data train + validation.
+8. Penyimpanan model dan metadata.
 
 Untuk menjalankan pengujian cepat tanpa tuning:
 
@@ -280,9 +291,13 @@ python -m streamlit run app.py --server.port 8502
 
 - Data observasi aktual memiliki keterbatasan cakupan waktu dan lebih padat mulai sekitar tahun 2020.
 - Model dilatih menggunakan data historis yang memenuhi kriteria kelayakan.
-- Prediksi ditujukan untuk satu bulan ke depan dan hanya tersedia untuk pasar yang memiliki observasi pada periode terakhir data.
+- Prediksi hanya tersedia untuk satu bulan ke depan. Horizon 2–3 bulan belum dievaluasi, sehingga tidak ditampilkan di aplikasi. Kode untuk itu masih ada di `predict_path`.
+- Prediksi hanya tersedia untuk pasar yang memiliki observasi pada periode terakhir data.
+- Validasi untuk memilih metode per komoditas hanya memakai satu tahun (2024). Stabilitas antar tahun ditampilkan di `commodity_method.csv` (kolom `mape_<tahun>`), tetapi belum ada backtest bergulir penuh.
+- Rentang 80% dihitung dari error relatif pada data validasi. Ini bukan jaminan statistik, dan cakupannya pada data uji ditampilkan di aplikasi.
+- Faktor di luar data harga (harga BBM, kurs, cuaca, panen) belum dimasukkan sebagai fitur.
 - Performa model berbeda pada setiap komoditas. Naive Forecast masih menjadi baseline yang kuat untuk beberapa komoditas dengan pola harga relatif stabil.
-- Model yang tersedia tidak otomatis dilatih ulang menggunakan data terbaru.
+- Model tidak dilatih ulang otomatis. Untuk memperbarui, jalankan `python retrain.py` setelah data baru tersedia.
 - Data merupakan estimasi harga berdasarkan dataset World Bank, bukan harga resmi real-time seluruh pasar Indonesia.
 
 ---
@@ -301,6 +316,17 @@ Pengujian mencakup:
 - Validasi hasil prediksi agar tidak menghasilkan nilai NaN.
 - Pemeriksaan halaman aplikasi dan filter.
 
+Pengujian kebijakan model (`tests/test_model_policy.py`) memeriksa:
+- `geo_id` tidak dipakai sebagai fitur dan fitur musiman tersedia.
+- Perhitungan fitur Ramadan dan Idul Fitri.
+- Metadata, CSV hasil, dan bundle model konsisten.
+- Komoditas dengan metode naif memang memprediksi harga terakhir.
+- Rentang ketidakpastian valid.
+
+```bat
+python tests/test_model_policy.py
+```
+
 ---
 
 ## 12. Hasil Evaluasi Model
@@ -318,9 +344,23 @@ Evaluasi dilakukan menggunakan metrik:
 - **MAPE (Mean Absolute Percentage Error):** mengukur rata-rata kesalahan dalam persentase.
 - **R² (R-squared):** mengukur kemampuan model dalam menjelaskan variasi target.
 
+**Catatan membaca angka:** MAE dalam Rupiah didominasi oleh bahan yang harganya tinggi, sehingga untuk membandingkan antar bahan gunakan **MAPE per komoditas** (ditampilkan di halaman *Seberapa Akurat?*). Di halaman itu juga ditampilkan rentang 80% dan cakupannya pada data uji (idealnya mendekati 80%).
+
+Hasil test gabungan untuk tiap metode (MAPE, Januari 2025–September 2026): model saja 5,18%, harga bulan lalu saja 4,91%, dan gabungan yang dipakai aplikasi **4,64%**.
+
+**Cakupan rentang 80% di data uji** (sekitar 64–84%): untuk telur, bawang putih, dan daging ayam rentangnya terlalu sempit, karena harga pada 2025–2026 bergerak lebih besar dari pada validasi 2024. Untuk bahan lain cakupannya mendekati 80%.
+
 ---
 
-## 13. Sumber Data
+## 13. Catatan Ukuran Repo
+
+File `dataset/processed/prices_long.csv` (sekitar 58 MB) dan file model `.pkl` ikut di repo karena dibutuhkan saat aplikasi dijalankan di Streamlit Community Cloud. Setiap kali model dilatih ulang dan di-commit, riwayat Git bertambah sebesar file-file itu.
+
+Opsi yang bisa dipertimbangkan:
+- **Git LFS** untuk `*.pkl` dan `dataset/processed/*.csv`. Perlu di-install di komputer yang melakukan commit, dan riwayat lama tetap menyimpan file asli.
+- **Commit model hanya saat model benar-benar berubah**, bukan setiap kali eksperimen.
+
+## 14. Sumber Data
 
 **World Bank — Monthly Food Price Estimates by Product and Market (Indonesia)**
 

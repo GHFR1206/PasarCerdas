@@ -77,18 +77,46 @@ def mape(y, p) -> float:
 
 def commodity_choice(val, test, pv_model, pt_model) -> pd.DataFrame:
     """Per komoditas: pilih 'model' atau 'naive' berdasarkan MAPE VALIDASI (2024).
-    Data test hanya dilaporkan, tidak dipakai untuk memilih."""
+    Data test hanya dilaporkan, tidak dipakai untuk memilih.
+
+    Juga dihitung:
+    - rentang ketidakpastian 80% (kuantil 10% dan 90% dari error relatif validasi),
+    - cakupan rentang tersebut pada data test (idealnya mendekati 80%),
+    - MAPE metode terpilih per tahun (2024 validasi; 2025 dan 2026 test) sebagai cek stabilitas.
+    """
     rows = []
     for c, nama in COMMODITIES.items():
         mv = (val["commodity"] == c).values; mt = (test["commodity"] == c).values
         yv = val["target"].values[mv]; yt = test["target"].values[mt]
-        m_val_model = mape(yv, pv_model[mv]); m_val_naive = mape(yv, val["price_lag_1"].values[mv])
-        m_test_model = mape(yt, pt_model[mt]); m_test_naive = mape(yt, test["price_lag_1"].values[mt])
+        pv_c_model = pv_model[mv]; pv_c_naive = val["price_lag_1"].values[mv]
+        pt_c_model = pt_model[mt]; pt_c_naive = test["price_lag_1"].values[mt]
+        m_val_model = mape(yv, pv_c_model); m_val_naive = mape(yv, pv_c_naive)
+        m_test_model = mape(yt, pt_c_model); m_test_naive = mape(yt, pt_c_naive)
         method = "naive" if m_val_naive <= m_val_model else "model"
-        rows.append(dict(commodity=c, nama=nama, metode=method,
-                         mape_val_model=round(m_val_model, 3), mape_val_naive=round(m_val_naive, 3),
-                         mape_test_model=round(m_test_model, 3), mape_test_naive=round(m_test_naive, 3),
-                         mape_test_terpilih=round(m_test_naive if method == "naive" else m_test_model, 3)))
+        p_val = pv_c_naive if method == "naive" else pv_c_model
+        p_test = pt_c_naive if method == "naive" else pt_c_model
+        # error relatif validasi -> rentang 80%
+        e_val = (yv - p_val) / p_val
+        lo_pct, hi_pct = np.quantile(e_val, [0.10, 0.90]) * 100
+        lo = p_test * (1 + lo_pct / 100); hi = p_test * (1 + hi_pct / 100)
+        coverage = float(np.mean((yt >= lo) & (yt <= hi)) * 100)
+        yrs_test = test["date"].dt.year.values[mt]
+        yrs_val = val["date"].dt.year.values[mv]
+        row = dict(commodity=c, nama=nama, metode=method,
+                   mape_val_model=round(m_val_model, 3), mape_val_naive=round(m_val_naive, 3),
+                   mape_test_model=round(m_test_model, 3), mape_test_naive=round(m_test_naive, 3),
+                   mape_test_terpilih=round(m_test_naive if method == "naive" else m_test_model, 3),
+                   band_low_pct=round(lo_pct, 3), band_high_pct=round(hi_pct, 3),
+                   cakupan_uji_pct=round(coverage, 2))
+        ape_by_year = {}
+        for y in np.unique(yrs_val):
+            k = yrs_val == y
+            ape_by_year[f"mape_{y}"] = round(mape(yv[k], p_val[k]), 3)
+        for y in np.unique(yrs_test):
+            k = yrs_test == y
+            ape_by_year[f"mape_{y}"] = round(mape(yt[k], p_test[k]), 3)
+        row.update(ape_by_year)
+        rows.append(row)
     return pd.DataFrame(rows)
 
 
@@ -118,6 +146,7 @@ def run_all(log=print, quick=False):
     choice = commodity_choice(val, test, pv[best_name], pt[best_name])
     choice.to_csv(RESULTS_DIR / "commodity_method.csv", index=False)
     commodity_method = dict(zip(choice["commodity"], choice["metode"]))
+    commodity_band = {r["commodity"]: (r["band_low_pct"] / 100, r["band_high_pct"] / 100) for _, r in choice.iterrows()}
     for _, r in choice.iterrows():
         log(f"  {r['nama']:<14} metode={r['metode']:<5} MAPE val model={r['mape_val_model']:.2f}% "
             f"naive={r['mape_val_naive']:.2f}% | test terpilih={r['mape_test_terpilih']:.2f}%")
@@ -140,7 +169,7 @@ def run_all(log=print, quick=False):
 
     log("== 6. Simpan model ==")
     versions = T.library_versions()
-    # model terbaik per algoritma (berdasarkan MAE validasi) -> alternatif untuk website
+    # model terbaik per algoritma (berdasarkan MAPE validasi) -> alternatif untuk website
     v = res[(res.split == "validation") & (res.model != "Naive Forecast")]
     alt = {}
     alt_names = {algo: g.sort_values("MAPE_%").iloc[0]["model"] for algo, g in v.groupby("algo")}
@@ -155,11 +184,13 @@ def run_all(log=print, quick=False):
     for algo, nm in alt_names.items():
         bundle = T.make_bundle(store[nm], nm)
         bundle["commodity_method"] = commodity_method
+        bundle["commodity_band"] = commodity_band
         fn = MODELS_DIR / "alternatif" / f"{slug(nm)}.pkl"
         joblib.dump(bundle, fn, compress=3)
         alt[T.ALGO_NAMES[store[nm]['algo']] if False else algo] = nm
     best_bundle = T.make_bundle(store[best_name], best_name)
     best_bundle["commodity_method"] = commodity_method
+    best_bundle["commodity_band"] = commodity_band
     joblib.dump(best_bundle, MODELS_DIR / "best_model.pkl", compress=3)
     first = next(iter(best_bundle["models"].values()))
     joblib.dump({k: m.named_steps["prep"] for k, m in best_bundle["models"].items()},

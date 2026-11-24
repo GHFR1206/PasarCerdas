@@ -1,8 +1,8 @@
-commodity,nama,metode,mape_val_model,mape_val_naive,mape_test_model,mape_test_naive,mape_test_terpilih
-eggs,Telur,naive,3.478,2.901,4.824,4.47,4.47
-garlic,Bawang Putih,naive,3.697,3.627,6.166,5.336,5.336
-meat_chicken,Daging Ayam,naive,5.748,5.661,7.318,7.02,7.02
-oil,Minyak Nabati,naive,1.921,1.44,1.764,1.148,1.148
-onions,Bawang Merah,model,12.904,15.933,12.917,14.313,12.917
-rice,Beras,naive,1.782,1.22,1.359,0.834,0.834
-sugar,Gula,naive,1.862,1.129,1.755,1.2,1.2
+commodity,nama,metode,mape_val_model,mape_val_naive,mape_test_model,mape_test_naive,mape_test_terpilih,band_low_pct,band_high_pct,cakupan_uji_pct,mape_2024,mape_2025,mape_2026
+eggs,Telur,naive,3.438,2.901,5.017,4.47,4.47,-5.455,4.0,64.39,2.901,4.209,4.886
+garlic,Bawang Putih,naive,3.968,3.627,6.391,5.336,5.336,-4.762,8.725,66.17,3.627,4.45,6.728
+meat_chicken,Daging Ayam,naive,5.736,5.661,7.352,7.02,7.02,-6.739,13.208,72.69,5.661,6.511,7.818
+oil,Minyak Nabati,naive,1.804,1.44,2.069,1.148,1.148,-0.418,4.348,83.91,1.44,0.888,1.559
+onions,Bawang Merah,model,12.538,15.933,12.447,14.313,12.447,-15.027,24.034,78.35,12.538,13.128,11.37
+rice,Beras,naive,1.944,1.22,1.29,0.834,0.834,-1.724,1.852,82.61,1.22,0.909,0.715
+sugar,Gula,naive,1.848,1.129,1.636,1.2,1.2,-2.618,2.813,80.6,1.129,1.081,1.389

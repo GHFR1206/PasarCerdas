@@ -79,6 +79,8 @@ def _predict_from(bundle: dict, sub: pd.DataFrame, geo_id: str, commodity: str) 
     return {"target_date": target_date, "last_date": last_obs, "last_price": last_price,
             "prediction": pred, "change": pred - last_price, "change_pct": (pred / last_price - 1) * 100,
             "method": method,
+            "band_low": pred * (1 + bundle.get("commodity_band", {}).get(commodity, (0.0, 0.0))[0]),
+            "band_high": pred * (1 + bundle.get("commodity_band", {}).get(commodity, (0.0, 0.0))[1]),
             "history": hist.dropna(), "features": row[bundle["features"]].iloc[0].to_dict(),
             "n_observed": n_obs}
 

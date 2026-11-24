@@ -51,10 +51,18 @@ check("filter Informasi Harga saling terhubung", not at.exception and len(at.sel
 def pred(at):
     at.button[0].click().run(); return at
 at = run_page("prediksi", pred)
-def pred3(at):
-    at.session_state["pr_hor"] = 3; at.button[0].click().run(); return at
-at3 = run_page("prediksi", pred3)
-check("prediksi horizon 3 bulan", not at3.exception and any("bertahap" in m.value for m in at3.markdown), str([e.value for e in at3.exception]))
+# Horizon 2-3 bulan sudah disembunyikan dari UI (belum dievaluasi). Pastikan UI tidak menawarkannya,
+# dan jalur backend untuk 3 langkah tetap berjalan tanpa error.
+at1 = run_page("prediksi", pred)
+check("prediksi tanpa pilihan horizon (hanya 1 bulan)", not at1.exception and len(at1.get("segmented_control")) == 0)
+from src.prediction import predict_path as _pp, load_bundle as _lb, list_models as _lm
+_b = _lb(list(_lm().values())[0])
+_s = long[(long.date == "2026-09-01") & long.price_clean.notna()].iloc[0]
+try:
+    _path = _pp(_b, long, _s.geo_id, _s.commodity, 3)
+    check("backend horizon 3 langkah berjalan", len(_path) == 3 and all(np.isfinite(p["prediction"]) for p in _path))
+except Exception as _e:
+    check("backend horizon 3 langkah berjalan", False, str(_e))
 check("tombol prediksi menghasilkan output", not at.exception and any("Perkiraan harga" in m.value for m in at.markdown),
       str([e.value for e in at.exception]))
 at = run_page("perbandingan", lambda a: a.selectbox(key="pb_com").select("Telur").run())

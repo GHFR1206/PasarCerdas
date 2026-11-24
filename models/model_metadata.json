@@ -5,12 +5,12 @@
   "target_mode": "ratio",
   "hyperparameters": {
     "n_estimators": 100,
-    "max_depth": 12,
-    "min_samples_leaf": 10,
+    "max_depth": 18,
+    "min_samples_leaf": 5,
     "max_features": 0.6
   },
   "seed": 42,
-  "trained_at": "2026-11-23T12:27:01",
+  "trained_at": "2026-11-24T13:45:52",
   "train_period": [
     "2016-10-01",
     "2023-12-01"
@@ -42,7 +42,11 @@
     "commodity",
     "adm1_name",
     "year",
-    "month",
+    "month_sin",
+    "month_cos",
+    "ramadan_share",
+    "lebaran_bulan",
+    "pra_lebaran",
     "price_lag_1",
     "price_lag_2",
     "price_lag_3",
@@ -70,16 +74,16 @@
     "sugar": "naive"
   },
   "metrics_validation": {
-    "MAE": 1446.6067925453738,
-    "RMSE": 2651.048411865018,
-    "R2": 0.9393552194917238,
-    "MAPE_%": 4.511354752119787
+    "MAE": 1439.5663842149286,
+    "RMSE": 2609.9570350444806,
+    "R2": 0.9412206434739719,
+    "MAPE_%": 4.493730091117514
   },
   "metrics_test": {
-    "MAE": 1907.6232470853438,
-    "RMSE": 3621.546482561014,
-    "R2": 0.9082234695440271,
-    "MAPE_%": 5.1652186075765885
+    "MAE": 1903.556361221958,
+    "RMSE": 3626.7303392310914,
+    "R2": 0.9079605449182881,
+    "MAPE_%": 5.178489339884776
   },
   "naive_baseline_test": {
     "MAE": 1838.0512986545796,
