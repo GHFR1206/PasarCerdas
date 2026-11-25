@@ -73,7 +73,7 @@ check("bundle.features sama dengan FEATURES", b["features"] == FEATURES)
 check("metode di bundle sama dengan CSV", all(b["commodity_method"][r.commodity] == r.metode for r in cm.itertuples()))
 
 # 5. prediksi naif = harga terakhir; model = tidak negatif
-from src.prediction import load_bundle, predict_path, eligible_markets, InsufficientHistory
+from src.prediction import predict_path
 from src.data_loader import load_long
 long = load_long()
 last = long[(long.date == "2026-09-01") & long.price_clean.notna()]

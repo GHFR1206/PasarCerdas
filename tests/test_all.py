@@ -2,7 +2,7 @@
 import sys, importlib
 from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]; sys.path.insert(0, str(ROOT))
-import numpy as np, pandas as pd
+import numpy as np
 from streamlit.testing.v1 import AppTest
 
 ok = []
