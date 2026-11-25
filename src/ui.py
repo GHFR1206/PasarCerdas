@@ -44,9 +44,19 @@ def illus_svg(code: str) -> str:
     return (ILLUS_DIR / f"{name}.svg").read_text(encoding="utf-8").strip().replace("\n", "")
 
 
-def inject_css():
+def inject_css(active_path: str = ""):
+    """Sisipkan stylesheet + penanda menu aktif (Streamlit tidak menandainya secara visual)."""
     css = (ASSETS_DIR / "style.css").read_text(encoding="utf-8")
-    st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+    extra = []
+    for p in ("dashboard", "harga", "prediksi", "wilayah", "tren", "evaluasi"):
+        href = "" if p == "dashboard" else p
+        if p != active_path:
+            continue
+        sel = f'.st-key-nav-desktop a[href="{href}"], [data-testid="stPopoverBody"] a[href="{href}"]'
+        extra.append(f"{sel}{{background:linear-gradient(135deg,#D8F36B 0%,#91EAAF 100%) !important;"
+                     "border-color:rgba(255,255,255,.95) !important;font-weight:700 !important;"
+                     "box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 8px 18px -10px rgba(47,168,106,.85) !important;}")
+    st.markdown(f"<style>{css}{''.join(extra)}</style>", unsafe_allow_html=True)
 
 
 @st.cache_data(show_spinner="Memuat dataset...")
@@ -110,12 +120,14 @@ def fmt_month(ts) -> str:
     return f"{bulan[ts.month - 1]} {ts.year}"
 
 
-def page_header(title, subtitle):
-    st.markdown(f"<div class='pc-header'><h1>{title}</h1><p>{subtitle}</p></div>", unsafe_allow_html=True)
+def page_header(title, subtitle, eyebrow=""):
+    eb = f"<div class='pc-eyebrow'>{esc(eyebrow)}</div>" if eyebrow else ""
+    st.markdown(f"<div class='pc-header'>{eb}<h1>{title}</h1><p>{subtitle}</p></div>", unsafe_allow_html=True)
 
 
-def section_title(title, sub=""):
-    st.markdown(f"<div class='pc-sec'><h2>{title}</h2><p>{sub}</p></div>", unsafe_allow_html=True)
+def section_title(title, sub="", eyebrow=""):
+    eb = f"<div class='pc-eyebrow'>{esc(eyebrow)}</div>" if eyebrow else ""
+    st.markdown(f"<div class='pc-sec'>{eb}<h2>{title}</h2><p>{sub}</p></div>", unsafe_allow_html=True)
 
 
 def stat_card(label, value, sub="", tone=""):
@@ -124,18 +136,53 @@ def stat_card(label, value, sub="", tone=""):
                 unsafe_allow_html=True)
 
 
+def empty_state(icon, title, text):
+    """Kotak kosong yang ramah, dipakai saat filter tidak menghasilkan data."""
+    st.markdown(f"<div class='pc-empty'><div class='pc-empty-ico'>{esc(icon)}</div>"
+                f"<h3>{esc(title)}</h3><p>{esc(text)}</p></div>", unsafe_allow_html=True)
+
+
+def band_html(low, value, high, low_label, high_label, center_label="Perkiraan"):
+    """HTML batang rentang prediksi (mis. 80%) dengan penanda nilai tengah.
+
+    Dikembalikan sebagai string agar bisa disisipkan ke dalam kartu hasil (latar gelap).
+    """
+    lo, hi = float(low), float(high)
+    span = (hi - lo) or 1.0
+    left = max(2.0, min(98.0, (float(value) - lo) / span * 100))
+    return ("<div class='pc-band'>"
+            "<div class='pc-band-track'>"
+            "<div class='pc-band-fill' style='left:0;right:0'></div>"
+            f"<div class='pc-band-dot' style='left:{left:.1f}%'></div>"
+            "</div>"
+            f"<div class='pc-band-legend'><span>{esc(low_label)}</span>"
+            f"<span>{esc(center_label)}</span><span>{esc(high_label)}</span></div>"
+            "</div>")
+
+
 def style_fig(fig: go.Figure, height=380) -> go.Figure:
-    fig.update_layout(height=height, template="plotly_white", font=dict(family="Nunito, sans-serif", color=OLIVE_DEEP),
-                      margin=dict(l=10, r=10, t=70, b=10), legend_title_text="", colorway=PALETTE,
-                      legend=dict(orientation="h", yanchor="bottom", y=1.0, x=0, title_text=""),
-                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
-    fig.update_xaxes(showgrid=False)
-    fig.update_yaxes(gridcolor="#E4EFD7")
+    """Gaya grafik yang konsisten: tipografi, grid halus, tanpa latar, tooltip gabungan."""
+    fig.update_layout(
+        height=height, template="plotly_white",
+        font=dict(family="Plus Jakarta Sans, system-ui, sans-serif", color=OLIVE_DEEP, size=12),
+        margin=dict(l=8, r=12, t=54, b=8), legend_title_text="", colorway=PALETTE,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, title_text="",
+                    font=dict(size=11), bgcolor="rgba(0,0,0,0)"),
+        hovermode="x unified",
+        hoverlabel=dict(bgcolor="rgba(255,255,255,.96)", bordercolor="#DCE9C6",
+                        font=dict(family="Plus Jakarta Sans, sans-serif", size=12, color=OLIVE_DEEP)),
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        title=dict(font=dict(family="Outfit, sans-serif", size=15, color=OLIVE_DEEP), x=0, xanchor="left", y=0.97),
+    )
+    fig.update_xaxes(showgrid=False, showline=True, linecolor="#E4EFD7", ticks="outside",
+                     tickcolor="#E4EFD7", ticklen=4, zeroline=False)
+    fig.update_yaxes(gridcolor="#E9F2DC", griddash="dot", zeroline=False, showline=False)
     return fig
 
 
 def show(fig):
-    st.plotly_chart(fig, width="stretch", theme=None)
+    st.plotly_chart(fig, width="stretch", theme=None,
+                    config={"displayModeBar": False, "displaylogo": False, "responsive": True})
 
 
 def movers_card(up_name, up_pct, dn_name, dn_pct) -> str:
@@ -163,10 +210,11 @@ def price_grid(items, extra=""):
     st.markdown("<div class='pc-grid'>" + "".join(cards) + extra + "</div>", unsafe_allow_html=True)
 
 
-def hero(title, text, chips=(), strip=False):
-    ch = "".join(f"<span class='pc-chip'>{c}</span>" for c in chips)
+def hero(title, text, chips=(), strip=False, eyebrow=""):
+    ch = "".join(f"<span class='pc-chip'>{esc(c)}</span>" for c in chips)
     strip_html = ("<div class='pc-strip'>" + "".join(illus_svg(k) for k in ILLUS) + "</div>") if strip else ""
-    st.markdown(f"<div class='pc-hero'><div class='pc-hero-text'><h1>{title}</h1><p>{text}</p>"
+    eb = f"<div class='pc-eyebrow'>{esc(eyebrow)}</div>" if eyebrow else ""
+    st.markdown(f"<div class='pc-hero'><div class='pc-hero-text'>{eb}<h1>{title}</h1><p>{text}</p>"
                 f"<div class='pc-chips'>{ch}</div></div>{strip_html}</div>", unsafe_allow_html=True)
 
 

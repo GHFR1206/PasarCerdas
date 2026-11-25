@@ -96,4 +96,23 @@ check("detail komoditas direset saat pilihan menyusut", not at.exception and at.
 
 full = AppTest.from_file(str(ROOT / "app.py"), default_timeout=120).run()
 check("app.py (navigasi penuh) berjalan", not full.exception)
+
+# Regresi frontend: penanda menu aktif harus mengikuti URL halaman yang dibuka.
+from src.ui import inject_css as _inject
+import inspect as _inspect
+_src = _inspect.getsource(_inject)
+check("inject_css menerima halaman aktif", "active_path" in _inspect.signature(_inject).parameters)
+check("inject_css menandai href halaman aktif", 'a[href="{href}"]' in _src and "active_path" in _src)
+# Halaman tanpa slug (Beranda) memakai href kosong -> pastikan pemetaan tidak salah.
+_active_pages = {"dashboard": "", "harga": "harga", "prediksi": "prediksi", "wilayah": "wilayah",
+                 "tren": "tren", "evaluasi": "evaluasi"}
+check("pemetaan slug halaman lengkap", len(_active_pages) == 6)
+check("Beranda memakai href kosong", _active_pages["dashboard"] == "")
+# CSS harus memuat token & komponen baru (kalau file rusak, halaman tampil polos).
+from src.config import ASSETS_DIR as _AD
+_css = (_AD / "style.css").read_text(encoding="utf-8")
+for token in ["--up-bg", "--down-bg", "--muted-2", "pc-band-dot", "pc-empty", "stPopoverBody",
+              "st-key-pc-card-", "prefers-reduced-motion"]:
+    check(f"CSS memuat {token}", token in _css)
+
 print("\nHASIL:", sum(ok), "/", len(ok), "lulus"); sys.exit(0 if all(ok) else 1)

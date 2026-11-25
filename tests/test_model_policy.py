@@ -20,13 +20,24 @@ from src.config import COMMODITIES, MODELS_DIR, RESULTS_DIR
 from src.feature_engineering import FEATURES, NUMERIC, seasonal_features
 
 # 0. format tampilan & escape HTML
-from src.ui import idr, fmt_pct, esc
+from src.ui import idr, fmt_pct, esc, band_html
 check("idr ribuan gaya Indonesia", idr(1234567) == "Rp 1.234.567", idr(1234567))
 check("idr satu desimal", idr(1234.56, 1) == "Rp 1.234,6", idr(1234.56, 1))
 check("idr dua desimal", idr(1234.567, 2) == "Rp 1.234,57", idr(1234.567, 2))
 check("idr NaN jadi '-'", idr(float("nan")) == "-")
 check("fmt_pct desimal koma", fmt_pct(4.832, True, 2) == "+4,83%", fmt_pct(4.832, True, 2))
 check("esc menetralkan tag HTML", esc("<b>x</b>") == "&lt;b&gt;x&lt;/b&gt;")
+
+# 0b. komponen frontend baru (batang rentang prediksi)
+_b = band_html(28600, 30250, 31460, "Batas bawah", "Batas atas", "Tengah")
+check("band_html memuat 3 label", _b.count("<span>") == 3, _b[:60])
+check("band_html menempatkan titik di tengah", "left:57.7%" in _b or "left:57.6%" in _b or "left:57.8%" in _b,
+      _b.split("pc-band-dot")[1][:40])
+check("band_html aman untuk nilai sama (span 0)", "left:2.0%" in band_html(100, 100, 100, "a", "b"),
+      band_html(100, 100, 100, "a", "b").split("pc-band-dot")[1][:40])
+check("band_html meng-escape label", "&lt;i&gt;" in band_html(1, 2, 3, "<i>", "x"))
+check("band_html menahan nilai di luar rentang", "left:98.0%" in band_html(10, 99, 20, "a", "b"))
+
 
 # 1. fitur
 check("geo_id bukan fitur", "geo_id" not in FEATURES)

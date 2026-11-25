@@ -8,11 +8,13 @@ from src.ui import page_header, insight, help_box, read_csv_result, style_fig, s
 
 
 def render():
-    page_header("Seberapa Akurat Prediksinya?", "Hasil uji model pada data yang belum pernah dilihatnya (Januari 2025 – September 2026).")
+    page_header("Seberapa Akurat Prediksinya?", "Hasil uji model pada data yang belum pernah dilihatnya (Januari 2025 – September 2026).",
+                eyebrow="Seberapa Akurat?")
     cm = read_csv_result("commodity_method.csv")
     section_title("Metode per komoditas",
                   "Model dibandingkan dengan tebakan harga bulan lalu (naif) pada data validasi 2024. "
-                  "Yang dipakai adalah yang lebih akurat untuk tiap bahan. Angka di bawah dihitung pada data uji 2025–2026.")
+                  "Yang dipakai adalah yang lebih akurat untuk tiap bahan. Angka di bawah dihitung pada data uji 2025–2026.",
+                  eyebrow="Metode")
     tbl = pd.DataFrame({
         "Bahan pokok": cm["nama"],
         "Metode dipakai": cm["metode"].map({"model": "Model", "naive": "Harga bulan lalu"}),
@@ -82,9 +84,10 @@ def render():
                                     "MAPE (%)": st.column_config.NumberColumn(format="%.2f")})
         m = st.radio("Metrik", ["MAE", "RMSE", "R2"], horizontal=True, key="ev_metric")
         x = d.sort_values(m, ascending=(m != "R2"))
-        fig = px.bar(x, x=m, y="model", orientation="h", color=(x["model"] == best).map({True: "Terpilih", False: "Lainnya"}),
-                     color_discrete_map={"Terpilih": GREEN, "Lainnya": NAVY})
-        fig.update_yaxes(autorange="reversed"); show(style_fig(fig, 520))
+        with st.container(key="pc-card-metrik"):
+            fig = px.bar(x, x=m, y="model", orientation="h", color=(x["model"] == best).map({True: "Terpilih", False: "Lainnya"}),
+                         color_discrete_map={"Terpilih": GREEN, "Lainnya": NAVY})
+            fig.update_yaxes(autorange="reversed"); show(style_fig(fig, 520))
         st.markdown("**Algoritma:** Linear Regression (baseline linear), Random Forest Regressor, XGBoost Regressor, "
                     "dibandingkan dengan Naive Forecast (harga bulan sebelumnya).")
     with t2:
@@ -105,8 +108,9 @@ def render():
         st.dataframe(py[py.model.isin([best, "Naive Forecast"])].round(3), hide_index=True, width="stretch")
         pp = read_csv_result("evaluation_by_period.csv")
         pp = pp[pp.model.isin([best, "Naive Forecast"])].sort_values("period")
-        fig = px.line(pp, x="period", y="MAE", color="model", markers=True, title="MAE per bulan pada periode uji")
-        show(style_fig(fig, 360))
+        with st.container(key="pc-card-maebulan"):
+            fig = px.line(pp, x="period", y="MAE", color="model", markers=True, title="MAE per bulan pada periode uji")
+            show(style_fig(fig, 360))
     with t5:
         for f, cap in [("eval_04_actual_vs_predicted.png", "Actual vs Predicted"), ("eval_05_residual.png", "Residual")]:
             st.markdown(f"**{cap}**"); st.image(str(FIG_DIR / f))

@@ -1,13 +1,32 @@
 [theme]
-base="light"
-primaryColor="#4D7111"
-backgroundColor="#F4FFFC"
-secondaryBackgroundColor="#EEF9C9"
-textColor="#2B4208"
-font="sans serif"
+base = "light"
+
+# --- warna merek ---
+primaryColor = "#4D7111"
+backgroundColor = "#F4FFFC"
+secondaryBackgroundColor = "#EEF9C9"
+textColor = "#243808"
+linkColor = "#4D7111"
+borderColor = "#E3EFD2"
+codeBackgroundColor = "#EEF9C9"
+
+# --- tipografi (design system di src/ui.py + assets/style.css) ---
+font = "'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif"
+headingFont = "'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif"
+baseFontSize = 16
+headingFontSizes = ["2rem", "1.6rem", "1.3rem", "1.1rem", "1rem", "0.95rem"]
+headingFontWeights = [800, 700, 700, 700, 600, 600]
+metricValueFontSize = "1.5rem"
+metricValueFontWeight = 700
+
+# --- grafik: palet kategorikal (olive/mint/lime/coral) ---
+chartCategoricalColors = [
+  "#4D7111", "#2FA86A", "#7FA41C", "#E8734A", "#2B4208",
+  "#91EAAF", "#6AA84F", "#B4470F", "#5B6B45", "#C3E956",
+]
 
 [browser]
-gatherUsageStats=false
+gatherUsageStats = false
 
 [client]
-toolbarMode="minimal"
+toolbarMode = "minimal"

@@ -1,12 +1,15 @@
 """PasarCerdas - Indonesia Food Price Intelligence (entry point Streamlit)."""
 import streamlit as st
+from urllib.parse import urlparse
 from src.config import ASSETS_DIR
 from src.ui import inject_css
 from pages import dashboard, harga_pangan, prediksi, perbandingan, analisis_tren, evaluasi_model
 
 st.set_page_config(page_title="PasarCerdas - Cek & Prediksi Harga Pangan", page_icon=":material/eco:",
                    layout="wide", initial_sidebar_state="collapsed")
-inject_css()
+# URL aktif dipakai untuk menandai menu yang sedang dibuka (Streamlit tidak menandainya di DOM).
+_active = urlparse(st.context.url or "").path.strip("/").split("/")[-1] or "dashboard"
+inject_css(_active)
 
 PAGES = [
     (st.Page(dashboard.render, title="Beranda", url_path="dashboard", default=True), "Beranda"),

@@ -414,8 +414,13 @@ Ringkasan perbaikan pada finalisasi ini:
 | `.gitignore` | `features_model.csv` sudah di-ignore tetapi masih ter-track; `prediction_results.csv` ikut ter-commit | Keduanya dikeluarkan dari Git |
 | `README.md` | Struktur folder menyebut `src/ui/` (sebenarnya `src/ui.py`), `test_model_policy.py` tidak didaftar, panduan hanya Windows | Struktur dan panduan diperbaiki, ditambah bagian Linux/macOS |
 | Berbagai modul | Import dan variabel tak terpakai (`OrdinalEncoder`, `ID_COLS`, `metrics_table`, dll.) | Dibersihkan; `pyflakes` bersih |
+| `assets/style.css` | Selector BaseWeb (`div[data-baseweb="select"]`, `button[data-baseweb="tab"]`, `div[data-testid="stPills"]`) tidak pernah cocok di Streamlit 1.67 — kustomisasi input dan tab tidak berefek | Diganti selector react-aria yang benar (`[data-testid="stSelectbox"] [role="group"]`, `[data-testid="stTab"]`, `[data-testid="stButtonGroup"]`, `[role="listbox"]`) |
+| `app.py`, `src/ui.py` | Menu aktif tidak pernah tersorot karena Streamlit tidak menaruh `aria-current` di DOM | `inject_css()` menerima halaman aktif dari `st.context.url` dan menyuntik aturan `href` untuk halaman itu |
+| `assets/style.css` | Popover menu HP tidak ter-styling (`div[data-baseweb="popover"]` tidak ada) | Diganti `[data-testid="stPopoverBody"]` |
+| `src/ui.py`, `pages/*` | Tidak ada komponen untuk kondisi kosong, panel chart, dan rentang prediksi masih berupa teks | Ditambahkan `empty_state()`, panel `st.container(key="pc-card-…")`, dan `band_html()` (batang rentang 80%) |
+| `assets/style.css` | `--muted-2` `#7E8B69` hanya 3,55:1 (gagal WCAG AA); hero terlalu tinggi karena strip ilustrasi turun baris | Warna digelapkan ke `#64734C` (5,0:1); hero dipadatkan 449 px → 331 px; ditambah `prefers-reduced-motion` |
 
-Seluruh pengujian (`tests/test_all.py` 21/21 dan `tests/test_model_policy.py` 43/43) lulus, dan kelima notebook berjalan tanpa error.
+Seluruh pengujian (`tests/test_all.py` 33/33 dan `tests/test_model_policy.py` 48/48) lulus, dan kelima notebook berjalan tanpa error.
 
 ## 15. Sumber Data
 

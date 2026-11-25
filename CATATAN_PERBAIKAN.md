@@ -17,7 +17,7 @@ Repo sudah berfungsi dan seluruh test bawaan lulus, tetapi ada beberapa **bug fu
 tidak tertangkap test** — terutama filter tanggal yang diam-diam diabaikan, format Rupiah yang
 salah, dan satu sel verifikasi di notebook yang selalu mencetak `False`.
 
-Total: **14 butir perbaikan** pada 20 file (kode, test, dokumentasi, konfigurasi),
+Total: **15 butir perbaikan** pada 20 file (kode, test, dokumentasi, konfigurasi),
 plus 2 file turunan yang dikeluarkan dari Git.
 
 | Kategori | Butir |
@@ -28,6 +28,7 @@ plus 2 file turunan yang dikeluarkan dari Git.
 | Ketahanan & pesan error | 2 — escape HTML, pesan `predict_path` |
 | Kebersihan repo & dependensi | 2 — file turunan, requirements |
 | Kode mati & dokumentasi | 2 — pembersihan `pyflakes`, README |
+| Revamp tampilan (poles frontend) | 1 — design system, panel kartu, menu aktif, komponen baru |
 
 **Yang tidak berubah:** model terpilih tetap `Random Forest | global | ratio`, MAPE uji tetap
 **5,18%**, dan 6 dari 7 komoditas tetap memakai naive. Perbaikan ini soal kebenaran kode dan UI,
@@ -388,6 +389,65 @@ Status akhir: `pyflakes` **bersih (exit 0)**.
 
 ---
 
+### 3.15 Revamp tampilan (poles frontend)
+
+Pekerjaan lanjutan atas permintaan "poles dan perbagus" — **tidak mengubah logika data,
+model, maupun angka evaluasi**. Semua perubahan ada di lapisan presentasi.
+
+**a. Design system sebagai token.** `assets/style.css` ditulis ulang dengan variabel CSS:
+warna merek, warna semantik naik/turun (`--up`/`--down` beserta latar & garis), skala tipografi,
+radius (`--r-sm` s/d `--r-xl`), bayangan berlapis (`--shadow-sm/--shadow/--shadow-lift`),
+dan `--ease`. Tujuannya agar konsisten dan mudah diubah dari satu tempat.
+
+**b. Token tema native Streamlit.** `.streamlit/config.toml` kini memakai opsi tema resmi
+(`font`, `headingFont`, `baseFontSize`, `headingFontSizes`, `headingFontWeights`,
+`metricValueFontSize`, `linkColor`, `borderColor`, `chartCategoricalColors`) sehingga widget
+dan grafik ikut konsisten, bukan hanya elemen yang di-`markdown` manual.
+
+**c. Bug styling yang ditemukan saat verifikasi visual.** Streamlit 1.67 **sudah tidak memakai
+BaseWeb** untuk selectbox/tab/pills. Selector lama (`div[data-baseweb="select"] > div`,
+`button[data-baseweb="tab"]`, `div[data-testid="stPills"]`) **tidak pernah cocok** sehingga
+kustomisasi input dan tab selama ini tidak berefek. Diganti selector `data-testid` yang benar:
+`[data-testid="stSelectbox"] [role="group"]`, `[data-testid="stDateInputField"]`,
+`[data-testid="stTab"]`, `[data-testid="stButtonGroup"] button[aria-pressed="true"]`,
+`[role="listbox"]`/`[role="option"]`.
+
+**d. Menu aktif tidak pernah tersorot.** Streamlit tidak menaruh `aria-current` di DOM, jadi
+aturan CSS `.…[aria-current="page"]` selalu gagal. Solusinya: `inject_css()` menerima halaman
+aktif dan menyuntik aturan khusus untuk `href` halaman itu, ditentukan dari `st.context.url`
+di `app.py`.
+
+**e. Popover menu HP tidak ter-styling.** Panel popover dirender di portal dengan
+`data-testid="stPopoverBody"`, bukan `div[data-baseweb="popover"]`. Selector diperbaiki
+sehingga menu HP ikut berlatar kaca dan menyorot halaman aktif.
+
+**f. Komponen baru.**
+- `band_html()` (`src/ui.py`): batang visual rentang prediksi 80% dengan penanda nilai tengah
+  di kartu hasil Prediksi — sebelumnya rentang hanya ditulis sebagai teks.
+- `empty_state(icon, title, text)`: kotak kosong yang ramah, menggantikan `st.warning`
+  di dashboard, Cek Harga, Prediksi, Bandingkan Wilayah, dan Tren.
+- `page_header`/`section_title`/`hero` menerima `eyebrow` (label kecil di atas judul).
+- Panel chart/tabel dibungkus `st.container(key="pc-card-…")`, filter dibungkus
+  `key="pc-bar-…"`, sehingga otomatis tampil sebagai kartu kaca tanpa menulis HTML berulang.
+
+**g. Poles rinci.**
+- `style_fig()`: tooltip gabungan (`hovermode="x unified"`), grid titik halus, judul rata
+  kiri, tipografi Plus Jakarta Sans, dan toolbar Plotly disembunyikan.
+- Hero dipadatkan (semua breakpoint): tinggi 449 px → 331 px, `flex-wrap:nowrap` supaya strip
+  ilustrasi tidak turun baris.
+- Grid kartu responsif 4 → 3 → 2 → 1 kolom.
+- Kontras diuji terprogram: `--muted-2` dari `#7E8B69` (3,55:1 — gagal WCAG AA) menjadi
+  `#64734C` (5,0:1). Semua pasangan teks/latar lain ≥ 4,5:1.
+- Legenda batang rentang dibuat satu baris dan dipendekkan jadi nominal saja
+  (sebelumnya membungkus 2 baris di layar 360 px).
+- `@media (prefers-reduced-motion: reduce)` mematikan animasi.
+
+> Catatan: perbaikan (c) dan (d) **bukan** permintaan revamp, melainkan bug yang baru
+> ketahuan setelah browser sungguhan dipakai untuk verifikasi. Sebelumnya verifikasi hanya
+> memakai `AppTest` (struktural), yang tidak bisa menangkap CSS yang tidak pernah cocok.
+
+---
+
 ### 3.14 Dokumentasi
 
 `README.md` diperbaiki:
@@ -404,15 +464,20 @@ Status akhir: `pyflakes` **bersih (exit 0)**.
 
 Perbaikan disertai test regresi agar tidak kembali rusak diam-diam.
 
-**`tests/test_all.py`** (+3 test, total 21):
+**`tests/test_all.py`** (+12 test, total 33):
 - `filter Periode dengan satu tanggal`
 - `ganti komoditas saat kabupaten terpilih`
 - `detail komoditas direset saat pilihan menyusut`
+- `inject_css` menerima parameter halaman aktif & menyuntik aturan `href`
+- pemetaan slug halaman lengkap, Beranda memakai `href` kosong
+- 8 pengecekan token CSS (`--up-bg`, `--down-bg`, `--muted-2`, `pc-band-dot`,
+  `pc-empty`, `stPopoverBody`, `st-key-pc-card-`, `prefers-reduced-motion`)
 
-**`tests/test_model_policy.py`** (+6 test, total 43):
+**`tests/test_model_policy.py`** (+11 test, total 48):
 - format `idr` ribuan / 1 desimal / 2 desimal / NaN
 - format `fmt_pct` desimal koma
 - `esc()` menetralkan tag HTML
+- `band_html()`: 3 label, posisi titik, rentang nol, escape label, nilai di luar rentang
 
 ---
 
@@ -420,13 +485,15 @@ Perbaikan disertai test regresi agar tidak kembali rusak diam-diam.
 
 | Pemeriksaan | Hasil |
 |---|---|
-| `python tests/test_all.py` | **21 / 21 lulus** |
-| `python tests/test_model_policy.py` | **43 / 43 lulus** |
+| `python tests/test_all.py` | **33 / 33 lulus** |
+| `python tests/test_model_policy.py` | **48 / 48 lulus** |
 | `pyflakes app.py retrain.py src/*.py pages/*.py tests/*.py` | **bersih (exit 0)** |
 | Notebook 01–05 dieksekusi ulang | **0 error** |
 | `python retrain.py` penuh (salinan terpisah) | **berhasil** |
-| Aplikasi dari clone bersih | **HTTP 200**, test 21/21 lulus |
+| Aplikasi dari clone bersih | **HTTP 200**, test lulus |
 | Notebook 05 di clone bersih | **0 error**, verifikasi benar |
+| Uji browser nyata (Chromium headless) | 6 halaman, 0 exception, 0 scroll horizontal |
+| Kontras teks (WCAG AA) | semua pasangan ≥ 4,5:1 |
 
 **Reproduksibilitas retrain.** Pelatihan deterministik (`SEED = 42`). Hasil retrain ulang di
 lingkungan ini **tidak bit-identik** dengan model ter-commit (selisih MAPE ~0,001%) karena
@@ -524,4 +591,8 @@ finalisasi", diurutkan dari yang paling berdampak:
    di beberapa jalur dan butuh ~25 detik untuk seluruh dataset.
 5. **Uji aksesibilitas & visual** dengan browser sungguhan. Di lingkungan ini tidak tersedia
    Chrome, jadi verifikasi UI memakai `AppTest` (struktural, bukan visual).
+   *(Sudah sebagian dikerjakan: Chromium headless via Playwright dipasang sementara untuk revamp
+   tampilan; temuan selector CSS mati dan menu aktif tidak tersorot berasal dari situ. Playwright
+   tidak dimasukkan ke `requirements.txt`. Untuk mengulang:
+   `pip install playwright && python -m playwright install chromium`.)*
 6. **Verifikasi tanggal Ramadan/Idul Fitri 2016–2022** ke sumber resmi Kemenag.

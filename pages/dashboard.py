@@ -3,7 +3,7 @@ import plotly.express as px
 import streamlit as st
 from src.config import COMMODITIES
 from src.ui import (get_long, get_obs, get_national, last_obs_month, hero, insight, help_box, price_grid,
-                    movers_card, section_title, idr, fmt_month, fmt_pct, style_fig, show, esc)
+                    movers_card, section_title, idr, fmt_month, fmt_pct, style_fig, show, esc, empty_state)
 
 
 def _latest_changes(obs, last):
@@ -22,16 +22,20 @@ def render():
     long, obs, nat, last = get_long(), get_obs(), get_national(), last_obs_month()
     chg, prev = _latest_changes(obs, last)
     if chg.empty:
-        st.warning(f"Belum ada pasangan harga observasi untuk {fmt_month(last)} dan {fmt_month(prev)}."); return
+        empty_state("📭", "Data bulan ini belum lengkap",
+                    f"Belum ada pasangan harga observasi untuk {fmt_month(last)} dan {fmt_month(prev)}. "
+                    "Coba buka lagi setelah data berikutnya masuk.")
+        return
     chg["name"] = chg.index.map(COMMODITIES)
     hero("Pantau harga pangan Indonesia dengan mudah",
          "Lihat harga 7 bahan pokok di pasar-pasar seluruh Indonesia, bandingkan antarwilayah, "
          "dan perkirakan harga bulan depan.",
          [f"{long.geo_id.nunique()} pasar", f"{long.adm1_name.nunique()} provinsi", "7 bahan pokok",
-          f"Data terbaru: {fmt_month(last)}"])
+          f"Data terbaru: {fmt_month(last)}"],
+         strip=True, eyebrow="Beranda")
 
     section_title(f"Harga rata-rata nasional · {fmt_month(last)}",
-                  f"Persentase menunjukkan perubahan dibanding {fmt_month(prev)}.")
+                  f"Persentase menunjukkan perubahan dibanding {fmt_month(prev)}.", eyebrow="Ringkasan")
     srt = chg.sort_values("pct")
     dn, up = srt.iloc[0], srt.iloc[-1]
     items = [(code, name, idr(chg.loc[code, "now"]), fmt_pct(abs(chg.loc[code, "pct"])), chg.loc[code, "pct"] >= 0)
@@ -52,7 +56,7 @@ def render():
                 f"({fmt_pct(up['pct'], True)}). Hijau berarti harga turun.")
 
     left, right = st.columns([3, 2], gap="large")
-    with left:
+    with left, st.container(key="pc-card-tren"):
         st.markdown("#### Bagaimana harga bergerak?")
         sel = st.pills("Pilih bahan pokok (bisa lebih dari satu)", list(COMMODITIES.values()),
                        selection_mode="multi", default=["Beras", "Telur", "Gula"], key="dash_sel")
@@ -71,7 +75,7 @@ def render():
                                     line=dict(dash="dot"))
             show(style_fig(fig, 400))
             st.caption("Arahkan kursor ke grafik untuk melihat harga tiap bulan.")
-    with right:
+    with right, st.container(key="pc-card-mahal"):
         st.markdown(f"#### Mana yang paling mahal? ({fmt_month(last)})")
         d = chg.sort_values("now")
         fig = px.bar(d, x="now", y="name", orientation="h",
