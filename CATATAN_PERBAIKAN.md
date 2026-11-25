@@ -560,7 +560,8 @@ Ringkasan isi tiap commit:
 | `8035dcc` | Finalisasi: bug UI, format Rupiah, filter tanggal, prediksi, kebersihan repo |
 | `b00d53b` | Bersihkan import tak terpakai di tests |
 | `1bc4970` | README: sesuaikan jumlah pengujian dan cakupan test |
-| berikutnya | Dokumen ini (`CATATAN_PERBAIKAN.md`) |
+| `71d1980` | Dokumen ini (`CATATAN_PERBAIKAN.md`) |
+| berikutnya | Revamp tampilan (bagian 3.15): design system, panel kartu, menu aktif, komponen baru |
 
 Untuk melihat seluruh perubahan:
 
