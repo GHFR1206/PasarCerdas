@@ -339,8 +339,11 @@ Pengujian mencakup:
 - Pemuatan model.
 - Validasi hasil prediksi agar tidak menghasilkan nilai NaN.
 - Pemeriksaan halaman aplikasi dan filter.
+- Regresi filter bertingkat: ganti komoditas saat kabupaten/pasar sudah dipilih.
+- Regresi filter **Periode** dengan satu tanggal.
 
 Pengujian kebijakan model (`tests/test_model_policy.py`) memeriksa:
+- Format Rupiah/persen dan escape HTML.
 - `geo_id` tidak dipakai sebagai fitur dan fitur musiman tersedia.
 - Perhitungan fitur Ramadan dan Idul Fitri.
 - Metadata, CSV hasil, dan bundle model konsisten.
@@ -412,7 +415,7 @@ Ringkasan perbaikan pada finalisasi ini:
 | `README.md` | Struktur folder menyebut `src/ui/` (sebenarnya `src/ui.py`), `test_model_policy.py` tidak didaftar, panduan hanya Windows | Struktur dan panduan diperbaiki, ditambah bagian Linux/macOS |
 | Berbagai modul | Import dan variabel tak terpakai (`OrdinalEncoder`, `ID_COLS`, `metrics_table`, dll.) | Dibersihkan; `pyflakes` bersih |
 
-Seluruh pengujian (`tests/test_all.py` 18/18 dan `tests/test_model_policy.py` 37/37) lulus, dan kelima notebook berjalan tanpa error.
+Seluruh pengujian (`tests/test_all.py` 21/21 dan `tests/test_model_policy.py` 43/43) lulus, dan kelima notebook berjalan tanpa error.
 
 ## 15. Sumber Data
 
