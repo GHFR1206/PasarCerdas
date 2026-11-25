@@ -1,6 +1,6 @@
 """Pemuatan dataset mentah dan dataset hasil preprocessing."""
 import pandas as pd
-from .config import RAW_ZIP, RAW_CSV_NAME, LONG_CSV
+from .config import RAW_ZIP, LONG_CSV
 
 
 def load_raw() -> pd.DataFrame:

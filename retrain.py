@@ -1,6 +1,5 @@
 """Latih ulang seluruh pipeline PasarCerdas: python retrain.py  (opsi --quick untuk uji cepat)."""
 import sys, time
-from pathlib import Path
 from src.pipeline import run_all
 from src.config import RESULTS_DIR
 

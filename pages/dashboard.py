@@ -3,7 +3,7 @@ import plotly.express as px
 import streamlit as st
 from src.config import COMMODITIES
 from src.ui import (get_long, get_obs, get_national, last_obs_month, hero, insight, help_box, price_grid,
-                    movers_card, section_title, idr, fmt_month, fmt_pct, style_fig, show)
+                    movers_card, section_title, idr, fmt_month, fmt_pct, style_fig, show, esc)
 
 
 def _latest_changes(obs, last):
@@ -13,12 +13,16 @@ def _latest_changes(obs, last):
     j = pd.concat([a.rename("now"), b.rename("prev")], axis=1).dropna().reset_index()
     g = j.groupby("commodity")[["now", "prev"]].mean()
     g["pct"] = (g["now"] / g["prev"] - 1) * 100
-    return g, prev
+    # Jaga-jaga bila suatu komoditas tidak punya pasangan harga di kedua bulan:
+    # halaman tetap tampil, komoditas tersebut dilewati.
+    return g.reindex(list(COMMODITIES)).dropna(subset=["now", "pct"]), prev
 
 
 def render():
     long, obs, nat, last = get_long(), get_obs(), get_national(), last_obs_month()
     chg, prev = _latest_changes(obs, last)
+    if chg.empty:
+        st.warning(f"Belum ada pasangan harga observasi untuk {fmt_month(last)} dan {fmt_month(prev)}."); return
     chg["name"] = chg.index.map(COMMODITIES)
     hero("Pantau harga pangan Indonesia dengan mudah",
          "Lihat harga 7 bahan pokok di pasar-pasar seluruh Indonesia, bandingkan antarwilayah, "
@@ -31,11 +35,21 @@ def render():
     srt = chg.sort_values("pct")
     dn, up = srt.iloc[0], srt.iloc[-1]
     items = [(code, name, idr(chg.loc[code, "now"]), fmt_pct(abs(chg.loc[code, "pct"])), chg.loc[code, "pct"] >= 0)
-             for code, name in COMMODITIES.items()]
+             for code, name in COMMODITIES.items() if code in chg.index]
     price_grid(items, movers_card(up["name"], up["pct"], dn["name"], dn["pct"]))
-    insight(f"Dibanding {fmt_month(prev)}, harga yang <b>paling naik</b> adalah <b>{up['name']}</b> "
-            f"({fmt_pct(up['pct'], True)}), dan yang <b>paling turun</b> adalah <b>{dn['name']}</b> "
-            f"({fmt_pct(dn['pct'], True)}). Oranye berarti harga naik (lebih mahal), hijau berarti harga turun.")
+    # Jangan sebut "paling turun" bila semua harga justru naik (atau sebaliknya).
+    if up["pct"] > 0 and dn["pct"] < 0:
+        insight(f"Dibanding {fmt_month(prev)}, harga yang <b>paling naik</b> adalah <b>{esc(up['name'])}</b> "
+                f"({fmt_pct(up['pct'], True)}), dan yang <b>paling turun</b> adalah <b>{esc(dn['name'])}</b> "
+                f"({fmt_pct(dn['pct'], True)}). Oranye berarti harga naik (lebih mahal), hijau berarti harga turun.")
+    elif dn["pct"] >= 0:
+        insight(f"Dibanding {fmt_month(prev)}, <b>semua</b> harga bahan pokok naik. Kenaikan terbesar pada "
+                f"<b>{esc(up['name'])}</b> ({fmt_pct(up['pct'], True)}), terkecil pada <b>{esc(dn['name'])}</b> "
+                f"({fmt_pct(dn['pct'], True)}). Oranye berarti harga naik (lebih mahal).")
+    else:
+        insight(f"Dibanding {fmt_month(prev)}, <b>semua</b> harga bahan pokok turun. Penurunan terbesar pada "
+                f"<b>{esc(dn['name'])}</b> ({fmt_pct(dn['pct'], True)}), terkecil pada <b>{esc(up['name'])}</b> "
+                f"({fmt_pct(up['pct'], True)}). Hijau berarti harga turun.")
 
     left, right = st.columns([3, 2], gap="large")
     with left:

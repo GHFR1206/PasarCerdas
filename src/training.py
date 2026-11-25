@@ -8,7 +8,6 @@ Eksperimen:
 Seleksi model & hyperparameter memakai VALIDASI (2024). Data TEST (2025-2026) hanya untuk pelaporan.
 """
 import json, time, platform, itertools
-from datetime import datetime
 import joblib
 import numpy as np
 import pandas as pd
@@ -18,12 +17,11 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from xgboost import XGBRegressor
 
-from .config import (SEED, TRAIN_END, VAL_START, VAL_END, TEST_START, COMMODITIES,
-                     MODELS_DIR, RESULTS_DIR)
-from .evaluation import regression_metrics, metrics_table
+from .config import SEED, TRAIN_END, VAL_START, VAL_END, TEST_START, COMMODITIES
+from .evaluation import regression_metrics
 from .feature_engineering import CATEGORICAL, NUMERIC, FEATURES
 
 ALGO_NAMES = {"linear": "Linear Regression", "rf": "Random Forest", "xgb": "XGBoost"}

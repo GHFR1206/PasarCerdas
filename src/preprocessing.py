@@ -4,9 +4,6 @@ import pandas as pd
 from .config import (AGGREGATE_GEO_ID, COMMODITIES, OUTLIER_RATIO_LOW, OUTLIER_RATIO_HIGH,
                      LONG_CSV, PROCESSED_DIR)
 
-ID_COLS = ["geo_id", "adm1_name", "adm2_name", "mkt_name", "lat", "lon", "price_date",
-           "year", "month", "spatially_interpolated"]
-
 
 def build_long(raw: pd.DataFrame, verbose: bool = True) -> pd.DataFrame:
     """Ubah dataset wide menjadi long (satu baris = pasar x bulan x komoditas).

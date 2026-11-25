@@ -3,4 +3,7 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 .streamlit/secrets.toml
+
+# Turunan (dibuat ulang oleh `python retrain.py`), tidak perlu disimpan di Git.
 dataset/processed/features_model.csv
+results/prediction_results.csv

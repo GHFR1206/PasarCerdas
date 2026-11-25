@@ -48,6 +48,22 @@ def filt(at):
 at = run_page("harga_pangan", filt)
 check("filter Informasi Harga saling terhubung", not at.exception and len(at.selectbox) >= 4)
 
+# Regresi: filter tanggal satu hari harus benar-benar menyaring (dulu diabaikan diam-diam).
+import datetime as _dt
+def filt_satu_hari(at):
+    at.date_input(key="hp_rng").set_value(_dt.date(2026, 9, 1)).run(); return at
+at = run_page("harga_pangan", filt_satu_hari)
+check("filter Periode dengan satu tanggal", not at.exception, str([e.value for e in at.exception]))
+
+# Regresi: ganti komoditas setelah memilih kabupaten tidak boleh error (opsi lama hilang).
+def filt_ganti(at):
+    at.selectbox(key="hp_com").select("Telur").run()
+    at.selectbox(key="hp_prov").select("NUSA TENGGARA BARAT").run()
+    at.selectbox(key="hp_kab_NUSA TENGGARA BARAT").select("SUMBAWA").run()
+    at.selectbox(key="hp_com").select("Beras").run(); return at
+at = run_page("harga_pangan", filt_ganti)
+check("ganti komoditas saat kabupaten terpilih", not at.exception, str([e.value for e in at.exception]))
+
 def pred(at):
     at.button[0].click().run(); return at
 at = run_page("prediksi", pred)
@@ -69,6 +85,14 @@ at = run_page("perbandingan", lambda a: a.selectbox(key="pb_com").select("Telur"
 check("filter Perbandingan Wilayah", not at.exception)
 at = run_page("analisis_tren", lambda a: a.multiselect(key="tr_sel").set_value(["Beras", "Gula"]).run())
 check("filter Analisis Tren", not at.exception)
+
+# Regresi: pilihan detail komoditas direset bila daftar komoditas menyusut.
+def tren_reset(at):
+    at.selectbox(key="tr_one").select("Gula").run()
+    at.multiselect(key="tr_sel").set_value(["Beras"]).run(); return at
+at = run_page("analisis_tren", tren_reset)
+check("detail komoditas direset saat pilihan menyusut", not at.exception and at.selectbox(key="tr_one").value == "Beras",
+      str([e.value for e in at.exception]))
 
 full = AppTest.from_file(str(ROOT / "app.py"), default_timeout=120).run()
 check("app.py (navigasi penuh) berjalan", not full.exception)

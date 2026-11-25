@@ -1,0 +1,6 @@
+# Dependensi tambahan untuk menjalankan notebook (opsional).
+# Pasang setelah requirements.txt:  python -m pip install -r requirements-dev.txt
+jupyter>=1.0,<2
+nbconvert>=7.0,<8
+nbformat>=5.10,<6
+ipykernel>=6.0,<8

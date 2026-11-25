@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from src.config import COMMODITIES
-from src.ui import get_national, page_header, style_fig, show, fmt_month, help_box
+from src.ui import get_national, page_header, style_fig, show, help_box
 
 
 def render():
@@ -40,7 +40,10 @@ def render():
                                 "turun": "Bulan turun", "maks_naik": "Kenaikan maks (%)", "maks_turun": "Penurunan maks (%)"}).round(2)
         st.dataframe(v, hide_index=True, width="stretch")
 
-    one = st.selectbox("Detail komoditas", sel, key="tr_one")
+    one_opts = list(sel)
+    if st.session_state.get("tr_one") not in one_opts:      # opsi menyusut -> kembalikan ke pilihan pertama
+        st.session_state["tr_one"] = one_opts[0]
+    one = st.selectbox("Detail komoditas", one_opts, key="tr_one")
     e = nat[nat.commodity_name == one].copy()
     e["yoy"] = np.nan
     prev = e.set_index("date")["price"]

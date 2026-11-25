@@ -1,8 +1,10 @@
 """Helper UI Streamlit: CSS, loader data ber-cache, tema grafik, komponen kartu."""
+import html
+
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
-from .config import ASSETS_DIR, RESULTS_DIR, COMMODITIES
+from .config import ASSETS_DIR, RESULTS_DIR
 from .data_loader import load_long
 from .preprocessing import last_observed_month
 
@@ -82,12 +84,24 @@ def read_csv_result(name: str) -> pd.DataFrame:
 
 
 def idr(x, d=0):
-    return "-" if x is None or pd.isna(x) else "Rp " + f"{x:,.{d}f}".replace(",", ".")
+    """Format Rupiah gaya Indonesia: titik sebagai pemisah ribuan, koma sebagai desimal."""
+    if x is None or pd.isna(x):
+        return "-"
+    s = f"{x:,.{d}f}"                       # 1,234.56 -> pemisah gaya Inggris
+    s = s.replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+    return "Rp " + s
 
 
 def fmt_pct(x, signed=False, d=1):
+    if x is None or pd.isna(x):
+        return "-"
     t = f"{x:+.{d}f}" if signed else f"{x:.{d}f}"
     return t.replace(".", ",") + "%"
+
+
+def esc(s) -> str:
+    """Escape teks dinamis sebelum disisipkan ke HTML (nama pasar/provinsi dari dataset)."""
+    return html.escape(str(s))
 
 
 def fmt_month(ts) -> str:
@@ -126,10 +140,15 @@ def show(fig):
 
 def movers_card(up_name, up_pct, dn_name, dn_pct) -> str:
     """Kartu ringkasan (ditaruh di grid) untuk komoditas paling naik & paling turun."""
+    if dn_pct >= 0:      # semua naik -> tidak ada yang "turun"
+        second = (f"<div class='pc-mv'><span class='pc-delta up'>{ARROW_UP}{fmt_pct(dn_pct)}</span>"
+                  f"{esc(dn_name)} kenaikan terkecil</div>")
+    else:
+        second = (f"<div class='pc-mv'><span class='pc-delta down'>{ARROW_DOWN}{fmt_pct(abs(dn_pct))}</span>"
+                  f"{esc(dn_name)} paling turun</div>")
     return ("<div class='pc-mini pc-movers'><div class='pc-mname'>Sorotan bulan ini</div>"
-            f"<div class='pc-mv'><span class='pc-delta up'>{ARROW_UP}{fmt_pct(up_pct)}</span>{up_name} paling naik</div>"
-            f"<div class='pc-mv'><span class='pc-delta down'>{ARROW_DOWN}{fmt_pct(abs(dn_pct))}</span>{dn_name} paling turun</div>"
-            "</div>")
+            f"<div class='pc-mv'><span class='pc-delta up'>{ARROW_UP}{fmt_pct(up_pct)}</span>"
+            f"{esc(up_name)} paling naik</div>{second}</div>")
 
 
 def price_grid(items, extra=""):
@@ -138,9 +157,9 @@ def price_grid(items, extra=""):
     for code, name, val, delta, up in items:
         blob = ILLUS[code][1]
         cards.append(f"<div class='pc-mini'><div class='pc-blob' style='--blob:{blob}'>{illus_svg(code)}</div>"
-                     f"<div class='pc-mname'>{name}</div>"
-                     f"<div class='pc-mval'>{val} <span class='pc-unit'>/kg</span></div>"
-                     f"<div class='pc-delta {'up' if up else 'down'}'>{arrow_icon(up)}{delta}</div></div>")
+                     f"<div class='pc-mname'>{esc(name)}</div>"
+                     f"<div class='pc-mval'>{esc(val)} <span class='pc-unit'>/kg</span></div>"
+                     f"<div class='pc-delta {'up' if up else 'down'}'>{arrow_icon(up)}{esc(delta)}</div></div>")
     st.markdown("<div class='pc-grid'>" + "".join(cards) + extra + "</div>", unsafe_allow_html=True)
 
 

@@ -1,11 +1,10 @@
 """Prediksi harga bulan berikutnya memakai model tersimpan + fitur yang sama dengan training."""
 import json
-from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from .config import MODELS_DIR, MIN_OBS_LAST6, COMMODITIES
-from .feature_engineering import build_features, FEATURES
+from .config import MODELS_DIR, MIN_OBS_LAST6
+from .feature_engineering import build_features
 from .preprocessing import last_observed_month
 from . import training as T
 
@@ -86,11 +85,19 @@ def _predict_from(bundle: dict, sub: pd.DataFrame, geo_id: str, commodity: str) 
 
 
 def eligible_markets(long: pd.DataFrame) -> set:
-    """Pasangan (geo_id, komoditas) yang memenuhi syarat prediksi bulan berikutnya."""
+    """Pasangan (geo_id, komoditas) yang memenuhi syarat prediksi bulan berikutnya.
+
+    Syaratnya sama dengan `build_features` + `_predict_from`: ada harga observasi pada bulan
+    terakhir data, dan minimal MIN_OBS_LAST6 observasi dalam 6 bulan terakhir. Versi ini tidak
+    membangun seluruh tabel fitur (jauh lebih cepat) dan hasilnya identik.
+    """
     last_obs = last_observed_month(long)
-    feat = build_features(long, extend_months=1)
-    row = feat[(feat["date"] == last_obs + pd.DateOffset(months=1)) & feat["eligible"]]
-    return set(zip(row["geo_id"], row["commodity"]))
+    window = long[(long["date"] > last_obs - pd.DateOffset(months=6)) & (long["date"] <= last_obs)]
+    counts = (window.groupby(["geo_id", "commodity"], observed=True)["price_clean"].count())
+    n_obs = {(str(g), str(c)): int(v) for (g, c), v in counts.items()}
+    has_last = window[(window["date"] == last_obs) & window["price_clean"].notna()]
+    keys = set(zip(has_last["geo_id"].astype(str), has_last["commodity"].astype(str)))
+    return {k for k in keys if n_obs.get(k, 0) >= MIN_OBS_LAST6}
 
 
 def predict_path(bundle: dict, long: pd.DataFrame, geo_id: str, commodity: str, horizon: int = 1) -> list:
@@ -100,10 +107,17 @@ def predict_path(bundle: dict, long: pd.DataFrame, geo_id: str, commodity: str, 
     sub = long[(long["geo_id"] == geo_id) & (long["commodity"] == commodity) & (long["date"] <= last_obs)].copy()
     for c in ("geo_id", "commodity", "adm1_name"):
         sub[c] = sub[c].astype(str)
+    # Pasar harus punya observasi pada bulan terakhir data; jika tidak, prediksi bulan depan
+    # tidak punya titik tolak yang jujur. Cek sekali di depan agar pesannya jelas.
+    if sub.empty or pd.isna(sub.loc[sub["date"] == last_obs, "price_clean"]).all():
+        raise InsufficientHistory(
+            f"Pasar ini tidak memiliki harga observasi pada bulan terakhir data "
+            f"({last_obs:%B %Y}), sehingga prediksi bulan berikutnya tidak dapat dibuat tanpa "
+            "mengisi data secara sembarangan.")
     out = []
     work = sub
     for step in range(1, horizon + 1):
-        # predict_next selalu memprediksi bulan setelah bulan terakhir pada `work`
+        # _predict_from selalu memprediksi bulan setelah bulan terakhir pada `work`
         r = _predict_from(bundle, work, geo_id, commodity)
         r["step"] = step
         r["anchor_price"] = out[0]["last_price"] if out else r["last_price"]

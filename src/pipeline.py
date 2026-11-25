@@ -8,8 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from .config import (MODELS_DIR, RESULTS_DIR, FIG_DIR, FEATURES_CSV, COMMODITIES, SEED,
-                     TRAIN_END, VAL_START, VAL_END, TEST_START)
+from .config import (MODELS_DIR, RESULTS_DIR, FIG_DIR, FEATURES_CSV, COMMODITIES, SEED)
 from .data_loader import load_raw
 from .preprocessing import build_long, save_long, last_observed_month
 from .eda import make_eda_figures, NAVY, GREEN
@@ -192,7 +191,6 @@ def run_all(log=print, quick=False):
     best_bundle["commodity_method"] = commodity_method
     best_bundle["commodity_band"] = commodity_band
     joblib.dump(best_bundle, MODELS_DIR / "best_model.pkl", compress=3)
-    first = next(iter(best_bundle["models"].values()))
     joblib.dump({k: m.named_steps["prep"] for k, m in best_bundle["models"].items()},
                 MODELS_DIR / "preprocessing.pkl", compress=3)
 

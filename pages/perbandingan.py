@@ -2,14 +2,14 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 from src.config import COMMODITIES
-from src.ui import get_obs, last_obs_month, page_header, idr, fmt_month, style_fig, show
+from src.ui import get_obs, page_header, idr, fmt_month, style_fig, show
 
 
 def render():
     page_header("Bandingkan Wilayah", "Di mana harga paling murah dan paling mahal? Bandingkan provinsi, kota, dan pasar pada bulan yang sama.")
-    obs, last = get_obs(), last_obs_month()
-    months = sorted(obs.date.unique(), reverse=True)
-    months = [pd.Timestamp(m) for m in months if (obs[obs.date == m].geo_id.nunique() >= 100)]
+    obs = get_obs()
+    months = [pd.Timestamp(m) for m in sorted(obs.date.unique(), reverse=True)
+              if (obs[obs.date == m].geo_id.nunique() >= 100)]
     c = st.columns(3)
     com = c[0].selectbox("Komoditas", list(COMMODITIES.values()), key="pb_com")
     mon = c[1].selectbox("Bulan", months, format_func=fmt_month, key="pb_mon")
@@ -35,11 +35,11 @@ def render():
         g.columns = ["Pasar", "Kab/Kota", "Provinsi", "IDR/kg"]
         lo, hi = g.iloc[0], g.iloc[-1]
         k = st.columns(2)
-        k[0].success(f"Terendah: **{lo['Pasar']}** ({lo['Kab/Kota'].title()}) · {idr(lo['IDR/kg'])}/kg")
-        k[1].error(f"Tertinggi: **{hi['Pasar']}** ({hi['Kab/Kota'].title()}) · {idr(hi['IDR/kg'])}/kg")
+        k[0].success(f"Terendah: **{lo['Pasar']}** ({lo['Kab/Kota']}) · {idr(lo['IDR/kg'])}/kg")
+        k[1].error(f"Tertinggi: **{hi['Pasar']}** ({hi['Kab/Kota']}) · {idr(hi['IDR/kg'])}/kg")
         a, b = st.columns(2)
-        a.markdown("**10 pasar termurah**"); a.dataframe(g.head(n), hide_index=True, width="stretch")
-        b.markdown("**10 pasar termahal**"); b.dataframe(g.tail(n).iloc[::-1], hide_index=True, width="stretch")
+        a.markdown(f"**{n} pasar termurah**"); a.dataframe(g.head(n), hide_index=True, width="stretch")
+        b.markdown(f"**{n} pasar termahal**"); b.dataframe(g.tail(n).iloc[::-1], hide_index=True, width="stretch")
     with t4:
         m = d.dropna(subset=["lat", "lon"])
         if m.empty:

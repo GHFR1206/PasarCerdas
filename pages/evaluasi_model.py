@@ -1,4 +1,3 @@
-import json
 import numpy as np
 import pandas as pd
 import plotly.express as px
@@ -48,10 +47,21 @@ def render():
     with c[2]: stat_card("R² (test)", f"{mt['R2']:.3f}", f"Naive: {nv['R2']:.3f}", "navy")
     with c[3]: stat_card("MAPE (test)", f"{mt['MAPE_%']:.2f}%", f"Naive: {nv['MAPE_%']:.2f}%", "navy")
     beat = mt["MAE"] < nv["MAE"]
+    cm_best = cm[cm["metode"] == "model"]
+    if beat:
+        extra = ("Model terpilih mengungguli baseline pada MAE data uji."
+                 if cm_best.empty else
+                 "Keunggulan model terutama datang dari bahan yang memakai metode model ("
+                 + ", ".join(cm_best["nama"]) + ").")
+    else:
+        extra = ("Model terpilih belum mengungguli baseline pada MAE data uji, sehingga aplikasi memakai "
+                 "harga bulan lalu untuk bahan yang modelnya tidak lebih akurat pada validasi"
+                 + (f" (model hanya dipakai untuk {', '.join(cm_best['nama'])})." if not cm_best.empty else "."))
     st.markdown(f"<div class='pc-warn'><b>Catatan jujur:</b> pada MAE data uji, model terpilih "
                 f"{'mengungguli' if beat else 'belum mengungguli'} baseline Naive Forecast "
-                f"({idr(mt['MAE'])} vs {idr(nv['MAE'])}). Keunggulan model terlihat pada RMSE/R² dan komoditas bawang merah; "
-                "untuk komoditas yang harganya sangat stabil (beras, gula, minyak) harga bulan lalu sudah menjadi prediktor sangat kuat.</div>",
+                f"({idr(mt['MAE'])} vs {idr(nv['MAE'])}). {extra} "
+                "Untuk komoditas yang harganya sangat stabil (beras, gula, minyak), harga bulan lalu sudah "
+                "menjadi prediktor yang sangat kuat.</div>",
                 unsafe_allow_html=True)
 
     t1, t2, t3, t4, t5 = st.tabs(["Perbandingan model", "Global vs Separate", "Per komoditas", "Per periode", "Grafik"])
@@ -94,7 +104,7 @@ def render():
         py = read_csv_result("evaluation_by_year.csv")
         st.dataframe(py[py.model.isin([best, "Naive Forecast"])].round(3), hide_index=True, width="stretch")
         pp = read_csv_result("evaluation_by_period.csv")
-        pp = pp[pp.model.isin([best, "Naive Forecast"])]
+        pp = pp[pp.model.isin([best, "Naive Forecast"])].sort_values("period")
         fig = px.line(pp, x="period", y="MAE", color="model", markers=True, title="MAE per bulan pada periode uji")
         show(style_fig(fig, 360))
     with t5:

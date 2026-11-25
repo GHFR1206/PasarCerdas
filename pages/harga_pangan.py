@@ -5,6 +5,15 @@ from src.config import COMMODITIES
 from src.ui import get_long, get_obs, last_obs_month, page_header, idr, fmt_month, style_fig, show, stat_card, help_box
 
 
+def _safe_select(col, label, options, key):
+    """selectbox yang aman ketika nilai tersimpan (session_state) tidak ada lagi di opsi baru."""
+    if not options:
+        st.warning(f"Tidak ada pilihan {label.lower()} untuk filter ini."); st.stop()
+    if st.session_state.get(key) not in options:
+        st.session_state[key] = options[0]
+    return col.selectbox(label, options, key=key)
+
+
 def render():
     page_header("Cek Harga", "Cari harga bahan pokok di daerahmu: pilih bahan, lokasi, dan periode.")
     obs, long = get_obs(), get_long()
@@ -12,18 +21,25 @@ def render():
     f = st.columns(5)
     com = f[0].selectbox("Komoditas", names, key="hp_com")
     d = obs[obs.commodity_name == com]
-    prov_opts = ["Semua"] + sorted(d.adm1_name.unique())
-    prov = f[1].selectbox("Provinsi", prov_opts, key="hp_prov")
+    prov = _safe_select(f[1], "Provinsi", ["Semua"] + sorted(d.adm1_name.unique()), "hp_prov")
     if prov != "Semua": d = d[d.adm1_name == prov]
-    kab = f[2].selectbox("Kabupaten/Kota", ["Semua"] + sorted(d.adm2_name.unique()), key=f"hp_kab_{prov}")
+    kab = _safe_select(f[2], "Kabupaten/Kota", ["Semua"] + sorted(d.adm2_name.unique()), f"hp_kab_{prov}")
     if kab != "Semua": d = d[d.adm2_name == kab]
-    pas = f[3].selectbox("Pasar", ["Semua"] + sorted(d.mkt_name.unique()), key=f"hp_pas_{prov}_{kab}")
+    pas = _safe_select(f[3], "Pasar", ["Semua"] + sorted(d.mkt_name.unique()), f"hp_pas_{prov}_{kab}")
     if pas != "Semua": d = d[d.mkt_name == pas]
     dmin, dmax = obs.date.min().date(), last_obs_month().date()
     rng = f[4].date_input("Periode", (max(dmin, pd.Timestamp("2020-01-01").date()), dmax),
                           min_value=dmin, max_value=dmax, key="hp_rng")
-    if isinstance(rng, tuple) and len(rng) == 2:
-        d = d[(d.date >= pd.Timestamp(rng[0])) & (d.date <= pd.Timestamp(rng[1]))]
+    # Streamlit mengembalikan satu tanggal (bukan tuple) bila pengguna memilih satu hari saja.
+    if isinstance(rng, (tuple, list)) and len(rng) == 2:
+        start, end = rng
+    elif isinstance(rng, (tuple, list)) and len(rng) == 1:
+        start = end = rng[0]
+    elif rng is not None:
+        start = end = rng
+    else:                                    # input dikosongkan -> pakai seluruh rentang
+        start, end = dmin, dmax
+    d = d[(d.date >= pd.Timestamp(start)) & (d.date <= pd.Timestamp(end))]
     show_est = st.checkbox("Tampilkan juga estimasi model World Bank (garis putus-putus, bukan observasi)", key="hp_est")
 
     if d.empty:
@@ -52,4 +68,9 @@ def render():
     t.columns = ["Tanggal", "Pasar", "Kabupaten/Kota", "Provinsi", "Komoditas", "Harga (IDR/kg)"]
     t["Tanggal"] = t["Tanggal"].dt.strftime("%Y-%m")
     st.dataframe(t, width="stretch", hide_index=True, height=360)
-    st.download_button("Unduh CSV (hasil filter)", t.to_csv(index=False).encode("utf-8"), "harga_pasarcerdas.csv", "text/csv")
+    st.download_button("Unduh CSV (hasil filter)", t.to_csv(index=False).encode("utf-8"),
+                       f"harga_{slug(com)}.csv", "text/csv")
+
+
+def slug(s: str) -> str:
+    return "".join(c if c.isalnum() else "_" for c in s.lower()).strip("_")

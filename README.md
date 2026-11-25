@@ -85,15 +85,17 @@ PasarCerdas/
 ├── run.bat
 ├── retrain.py
 ├── requirements.txt
+├── requirements-dev.txt
 │
 ├── assets/
 │   └── style.css
 │
 ├── dataset/
 │   ├── raw/
+│   │   └── IDN_RTFP_mkt_2007_2026-11-02.zip
 │   └── processed/
-│       ├── prices_long.csv
-│       └── features_model.csv        (turunan; dibuat ulang oleh retrain.py, tidak di-commit)
+│       ├── prices_long.csv            (dipakai aplikasi, ikut di-commit)
+│       └── features_model.csv         (turunan; dibuat ulang oleh retrain.py, tidak di-commit)
 │
 ├── notebooks/
 │   ├── 01_dataset_audit_eda.ipynb
@@ -112,7 +114,7 @@ PasarCerdas/
 │   ├── prediction.py
 │   ├── eda.py
 │   ├── pipeline.py
-│   └── ui/
+│   └── ui.py
 │
 ├── pages/
 │   ├── dashboard.py
@@ -130,12 +132,14 @@ PasarCerdas/
 │
 ├── results/
 │   ├── evaluation_*.csv
-│   ├── prediction_results.csv
+│   ├── commodity_method.csv
+│   ├── prediction_results.csv        (turunan; tidak di-commit)
 │   ├── eda_summary.json
 │   └── figures/
 │
 └── tests/
-    └── test_all.py
+    ├── test_all.py
+    └── test_model_policy.py
 ```
 
 ---
@@ -144,7 +148,7 @@ PasarCerdas/
 
 | Komponen | Persyaratan |
 |---|---|
-| Sistem Operasi | Windows 10/11 64-bit |
+| Sistem Operasi | Windows 10/11 64-bit (Linux/macOS juga didukung bila menjalankan manual) |
 | Python | 3.11–3.13 |
 | RAM | Minimal 4 GB |
 | Koneksi Internet | Dibutuhkan saat instalasi pertama, serta untuk font Google dan peta OpenStreetMap. |
@@ -190,6 +194,18 @@ python -m pip install -r requirements.txt
 python -m streamlit run app.py
 ```
 
+### D. Menjalankan di Linux/macOS
+
+`run.bat` khusus Windows. Di Linux/macOS gunakan perintah berikut:
+
+```bash
+cd path/ke/PasarCerdas
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m streamlit run app.py
+```
+
 ---
 
 ## 6. Menjalankan Notebook
@@ -200,6 +216,12 @@ Aktifkan virtual environment:
 
 ```bat
 .venv\Scripts\activate
+```
+
+Pasang dependensi notebook (sekali saja):
+
+```bat
+python -m pip install -r requirements-dev.txt
 ```
 
 Jalankan Jupyter Notebook:
@@ -248,6 +270,8 @@ python retrain.py --quick
 ```
 
 **Catatan:** Mode `--quick` hanya digunakan untuk pengujian awal, bukan untuk menghasilkan hasil evaluasi akhir.
+
+**Reproduksibilitas:** pelatihan bersifat deterministik (`SEED = 42`) pada versi pustaka yang sama. `scikit-learn` dan `xgboost` dipin persis di `requirements.txt` karena file `.pkl` dibuat dengan versi tersebut. Bila `numpy`/`pandas` berbeda patch version, angka evaluasi dapat bergeser sangat kecil (jauh di bawah 0,1%) tanpa mengubah model terpilih.
 
 ---
 
@@ -356,11 +380,41 @@ Hasil test gabungan untuk tiap metode (MAPE, Januari 2025–September 2026): mod
 
 File `dataset/processed/prices_long.csv` (sekitar 58 MB) dan file model `.pkl` ikut di repo karena dibutuhkan saat aplikasi dijalankan di Streamlit Community Cloud. Setiap kali model dilatih ulang dan di-commit, riwayat Git bertambah sebesar file-file itu.
 
+File **turunan** tidak lagi di-commit karena selalu dibuat ulang oleh `python retrain.py`:
+- `dataset/processed/features_model.csv` (sekitar 18 MB)
+- `results/prediction_results.csv` (sekitar 5 MB)
+
+Keduanya masuk `.gitignore`. Notebook 05 sudah disesuaikan sehingga tidak lagi membaca `prediction_results.csv`, jadi notebook tetap bisa dijalankan setelah clone baru.
+
 Opsi yang bisa dipertimbangkan:
 - **Git LFS** untuk `*.pkl` dan `dataset/processed/*.csv`. Perlu di-install di komputer yang melakukan commit, dan riwayat lama tetap menyimpan file asli.
 - **Commit model hanya saat model benar-benar berubah**, bukan setiap kali eksperimen.
 
-## 14. Sumber Data
+## 14. Catatan Perbaikan Terakhir
+
+Ringkasan perbaikan pada finalisasi ini:
+
+| Bagian | Masalah | Perbaikan |
+|---|---|---|
+| `src/ui.py` | `idr()` memakai `replace(",", ".")` sehingga angka 1 desimal salah tampil (`Rp 1.234.6`) | Format Rupiah kini titik ribuan + koma desimal (`Rp 1.234,6`); `fmt_pct`/`idr` aman untuk NaN |
+| `src/ui.py` | Nama pasar/provinsi disisipkan ke HTML tanpa escape | Ditambahkan `esc()` dan dipakai di komponen kartu |
+| `src/ui.py` | Kartu sorotan menulis "paling turun" walau semua harga naik | Kalimat menyesuaikan kondisi data |
+| `pages/dashboard.py` | Insight menyebut "paling turun" secara keliru; halaman error bila sebuah komoditas tidak punya pasangan harga di dua bulan | Insight mengikuti kondisi nyata; komoditas tanpa data dilewati dengan aman |
+| `pages/harga_pangan.py` | Filter **Periode** mengabaikan input satu tanggal (diam-diam menampilkan semua data) | Satu tanggal kini difilter dengan benar; input kosong memakai rentang penuh |
+| `pages/harga_pangan.py`, `pages/prediksi.py`, `pages/analisis_tren.py` | `selectbox` bertingkat bisa error ketika pilihan lama tidak ada lagi di opsi baru (mis. ganti komoditas setelah memilih kabupaten) | Nilai yang tidak valid direset ke pilihan pertama sebelum widget dirender |
+| `pages/prediksi.py` | Label model dari `session_state` bisa tidak ada setelah retrain | Divalidasi dan fallback ke model pertama |
+| `pages/perbandingan.py` | `.title()` mengubah nama resmi (`KOTA BAU-BAU` → `Kota Bau-Bau`, `DKI JAKARTA` → `Dki Jakarta`); judul tabel hardcode "10" walau slider bisa 5–20 | Nama ditampilkan apa adanya; judul mengikuti jumlah yang dipilih |
+| `pages/evaluasi_model.py` | Klaim "keunggulan terlihat pada komoditas bawang merah" ditulis mati, tidak mengikuti data | Klaim dihitung dari `commodity_method.csv` |
+| `src/prediction.py` | `predict_path` melempar `KeyError`/error tak tertangani untuk pasar tanpa observasi di bulan terakhir | Mengembalikan `InsufficientHistory` dengan pesan jelas |
+| `src/prediction.py` | `eligible_markets` membangun seluruh tabel fitur (25 detik) untuk 1.483 pasangan pasar–komoditas | Dihitung langsung dari data observasi; hasil identik, jauh lebih cepat |
+| `notebooks/05_model_evaluation.ipynb` | Sel verifikasi membandingkan prediksi model **refit** dengan `prediction_results.csv` dari model **pre-refit**, sehingga selalu mencetak `Konsisten: False` | Sel diperbaiki: memverifikasi metrik test metadata dapat direproduksi (selisih MAPE 0,001%) dan memeriksa prediksi refit valid |
+| `.gitignore` | `features_model.csv` sudah di-ignore tetapi masih ter-track; `prediction_results.csv` ikut ter-commit | Keduanya dikeluarkan dari Git |
+| `README.md` | Struktur folder menyebut `src/ui/` (sebenarnya `src/ui.py`), `test_model_policy.py` tidak didaftar, panduan hanya Windows | Struktur dan panduan diperbaiki, ditambah bagian Linux/macOS |
+| Berbagai modul | Import dan variabel tak terpakai (`OrdinalEncoder`, `ID_COLS`, `metrics_table`, dll.) | Dibersihkan; `pyflakes` bersih |
+
+Seluruh pengujian (`tests/test_all.py` 18/18 dan `tests/test_model_policy.py` 37/37) lulus, dan kelima notebook berjalan tanpa error.
+
+## 15. Sumber Data
 
 **World Bank — Monthly Food Price Estimates by Product and Market (Indonesia)**
 

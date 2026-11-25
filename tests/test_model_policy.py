@@ -17,7 +17,16 @@ def check(name, cond, extra=""):
     print(("PASS " if cond else "FAIL ") + name, extra); ok.append(bool(cond))
 
 from src.config import COMMODITIES, MODELS_DIR, RESULTS_DIR
-from src.feature_engineering import FEATURES, CATEGORICAL, NUMERIC, seasonal_features
+from src.feature_engineering import FEATURES, NUMERIC, seasonal_features
+
+# 0. format tampilan & escape HTML
+from src.ui import idr, fmt_pct, esc
+check("idr ribuan gaya Indonesia", idr(1234567) == "Rp 1.234.567", idr(1234567))
+check("idr satu desimal", idr(1234.56, 1) == "Rp 1.234,6", idr(1234.56, 1))
+check("idr dua desimal", idr(1234.567, 2) == "Rp 1.234,57", idr(1234.567, 2))
+check("idr NaN jadi '-'", idr(float("nan")) == "-")
+check("fmt_pct desimal koma", fmt_pct(4.832, True, 2) == "+4,83%", fmt_pct(4.832, True, 2))
+check("esc menetralkan tag HTML", esc("<b>x</b>") == "&lt;b&gt;x&lt;/b&gt;")
 
 # 1. fitur
 check("geo_id bukan fitur", "geo_id" not in FEATURES)
@@ -64,7 +73,7 @@ check("bundle.features sama dengan FEATURES", b["features"] == FEATURES)
 check("metode di bundle sama dengan CSV", all(b["commodity_method"][r.commodity] == r.metode for r in cm.itertuples()))
 
 # 5. prediksi naif = harga terakhir; model = tidak negatif
-from src.prediction import load_bundle, predict_path
+from src.prediction import load_bundle, predict_path, eligible_markets, InsufficientHistory
 from src.data_loader import load_long
 long = load_long()
 last = long[(long.date == "2026-09-01") & long.price_clean.notna()]
